@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "792952498569",
+    "project_id": "tchadlychat-e4c83",
+    "storage_bucket": "tchadlychat-e4c83.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:792952498569:android:3fd3f430d1339ffa525958",
+        "android_client_info": {
+          "package_name": "com.chadrack.tchadlychat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDe0j130TJkscfnZm1gWAhLOvXHaEOPhGU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
