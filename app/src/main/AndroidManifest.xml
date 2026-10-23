@@ -75,6 +75,7 @@
             </intent-filter>
         </activity>
 
-    </application>
+        <activity android:name=".CallActivity" android:exported="false" android:screenOrientation="portrait" android:showWhenLocked="true" android:turnScreenOn="true" />
+</application>
 
 </manifest>
