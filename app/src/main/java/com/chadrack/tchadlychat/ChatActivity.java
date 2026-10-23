@@ -462,6 +462,15 @@ try{if(mediaRecorder!=null)mediaRecorder.reset();}catch(Exception ignored){}
 try{if(mediaRecorder!=null)mediaRecorder.release();}catch(Exception ignored){}
 mediaRecorder=null;
 }
+private void telechargerVideo(String url){
+toast("Téléchargement en cours...");
+VideoCache.telecharger(getApplicationContext(),url,new VideoCache.Callback(){
+@Override
+public void onFini(java.io.File f){MAIN.post(()->{if(activityActive())afficherMessagesCombines();});}
+@Override
+public void onErreur(String msg){MAIN.post(()->toast("Téléchargement échoué."));}
+});
+}
 private static void notifierAppel(String callId){
 HttpURLConnection c=null;
 try{
