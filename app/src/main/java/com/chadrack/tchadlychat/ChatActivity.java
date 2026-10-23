@@ -374,19 +374,24 @@ try{notificationExecutor.execute(()->notifierServeur(messageId));}catch(Exceptio
 private void demarrerAppel(String type){
 if(!permissionsAppelOk())return;
 if(firestore==null||senderUid==null||receiverUid==null)return;
+final String channel="call_"+UUID.randomUUID().toString().replace("-","");
 Map<String,Object> appel=new HashMap<>();
 appel.put("caller",senderUid);
 appel.put("callee",receiverUid);
 appel.put("type",type);
 appel.put("status","ringing");
-appel.put("channel","call_"+UUID.randomUUID().toString().replace("-",""));
+appel.put("channel",channel);
 appel.put("createdAt",Timestamp.now());
-firestore.collection("calls").add(appel)
-.addOnSuccessListener(ref->{
-toast("Appel en cours...");
+firestore.collection("calls").add(appel).addOnSuccessListener(ref->{
 notificationExecutor.execute(()->notifierAppel(ref.getId()));
-})
-.addOnFailureListener(e->toast("Appel impossible. Vérifiez la connexion."));
+Intent i=new Intent(ChatActivity.this,CallActivity.class);
+i.putExtra("callId",ref.getId());
+i.putExtra("channel",channel);
+i.putExtra("type",type);
+i.putExtra("peerName",receiverPseudo);
+i.putExtra("role","caller");
+startActivity(i);
+}).addOnFailureListener(e->toast("Appel impossible. Vérifiez la connexion."));
 }
 /*private void demarrerAppel(String type){
 if(!permissionsAppelOk())return;
