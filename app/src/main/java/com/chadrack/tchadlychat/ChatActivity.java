@@ -628,7 +628,7 @@ job.state="SAVING";
 sauvegarderJobs(ctx);
 notifierUi();
 enregistrerMessageVideo(job);
-notifierServeur(job.id);
+notifierServeur(job.id);VideoCache.copierLocal(ctx,SUPABASE_URL+"/storage/v1/object/public/videos/"+job.path,new File(job.sourcePath));
 File f=new File(job.sourcePath);
 if(f.exists())f.delete();
 synchronized(JOBS){JOBS.remove(job);}
@@ -958,6 +958,14 @@ videoLabel.setGravity(Gravity.CENTER);
 videoCard.addView(videoLabel,new LinearLayout.LayoutParams(-1,-2));
 bubble.addView(videoCard,new LinearLayout.LayoutParams(-1,dp(150)));
 videoCard.setOnClickListener(v->ouvrirVideo(videoLink));
+TextView dl=new TextView(this);
+dl.setTextColor(Color.WHITE);
+dl.setTextSize(13);
+dl.setPadding(0,dp(6),0,dp(2));
+boolean disponible=VideoCache.existe(this,videoLink);
+dl.setText(disponible?"✓ Téléchargée":"⬇ Télécharger");
+if(!disponible)dl.setOnClickListener(v->telechargerVideo(videoLink));
+bubble.addView(dl);
 }else if("audio".equals(type)){
 TextView audio=new TextView(this);
 audio.setText("▶ Message vocal");
