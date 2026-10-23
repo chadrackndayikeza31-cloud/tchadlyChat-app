@@ -59,7 +59,7 @@ public void onUserJoined(int uid,int elapsed){
 runOnUiThread(()->{
 statusText.setText("En communication");
 if(isVideo&&engine!=null){
-SurfaceView rv=RtcEngine.CreateRendererView(CallActivity.this);
+SurfaceView rv=new SurfaceView(CallActivity.this);
 remoteContainer.removeAllViews();
 remoteContainer.addView(rv);
 engine.setupRemoteVideo(new VideoCanvas(rv,Constants.RENDER_MODE_HIDDEN,uid));
@@ -182,7 +182,7 @@ engine.enableAudio();
 engine.setEnableSpeakerphone(speaker);
 if(isVideo){
 engine.enableVideo();
-SurfaceView local=RtcEngine.CreateRendererView(this);
+SurfaceView local=new SurfaceView(this);
 localContainer.removeAllViews();
 localContainer.addView(local);
 engine.setupLocalVideo(new VideoCanvas(local,Constants.RENDER_MODE_HIDDEN,0));
