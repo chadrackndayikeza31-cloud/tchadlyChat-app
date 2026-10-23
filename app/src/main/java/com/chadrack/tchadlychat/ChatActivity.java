@@ -371,6 +371,38 @@ private void envoyerNotification(String messageId){
 if(messageId==null||messageId.trim().isEmpty())return;
 try{notificationExecutor.execute(()->notifierServeur(messageId));}catch(Exception ignored){}
 }
+private void demarrerAppel(String type){
+if(!permissionsAppelOk())return;
+if(firestore==null||senderUid==null||receiverUid==null)return;
+Map<String,Object> appel=new HashMap<>();
+appel.put("caller",senderUid);
+appel.put("callee",receiverUid);
+appel.put("type",type);
+appel.put("status","ringing");
+appel.put("channel","call_"+UUID.randomUUID().toString().replace("-",""));
+appel.put("createdAt",Timestamp.now());
+firestore.collection("calls").add(appel)
+.addOnSuccessListener(ref->{
+toast("Appel en cours...");
+notificationExecutor.execute(()->notifierAppel(ref.getId()));
+})
+.addOnFailureListener(e->toast("Appel impossible. Vérifiez la connexion."));
+}
+/*private void demarrerAppel(String type){
+if(!permissionsAppelOk())return;
+if(firestore==null||senderUid==null||receiverUid==null)return;
+Map<String,Object> appel=new HashMap<>();
+appel.put("caller",senderUid);
+appel.put("callee",receiverUid);
+appel.put("type",type);
+appel.put("status","ringing");
+appel.put("channel","call_"+UUID.randomUUID().toString().replace("-",""));
+appel.put("createdAt",Timestamp.now());
+firestore.collection("calls").add(appel)
+.addOnSuccessListener(ref->toast("Appel en cours..."))
+.addOnFailureListener(e->toast("Appel impossible. Vérifiez la connexion."));
+}*/
+private static void notifierServeur(String messageId){
 HttpURLConnection c=null;
 try{
 c=(HttpURLConnection)new URL(NOTIFICATION_SERVER_URL).openConnection();
