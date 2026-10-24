@@ -595,9 +595,10 @@ try(InputStream in=new FileInputStream(audio);ByteArrayOutputStream out=new Byte
 byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1)out.write(b,0,n);bytes=out.toByteArray();
 }
 String encoded=android.util.Base64.encodeToString(bytes,android.util.Base64.NO_WRAP);
+long dureeMs=0;try{MediaMetadataRetriever mr=new MediaMetadataRetriever();mr.setDataSource(audio.getAbsolutePath());String dd=mr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);mr.release();if(dd!=null)dureeMs=Long.parseLong(dd);}catch(Exception ignored){}
 if(encoded.length()>900000){toast("Message vocal trop long.");return;}
 Map<String,Object> m=new HashMap<>();
-m.put("sender",senderUid);m.put("receiver",receiverUid);m.put("type","audio");m.put("audioBase64",encoded);m.put("text","Message vocal");m.put("timestamp",Timestamp.now());m.put("delivered",false);m.put("seen",false);m.put("deleted",false);
+m.put("sender",senderUid);m.put("receiver",receiverUid);m.put("type","audio");m.put("audioBase64",encoded);m.put("audioDuree",dureeMs);m.put("text","Message vocal");m.put("timestamp",Timestamp.now());m.put("delivered",false);m.put("seen",false);m.put("deleted",false);
 runOnUiThread(()->firestore.collection("private_messages").add(m).addOnSuccessListener(r->envoyerNotification(r.getId())).addOnFailureListener(e->toast("Échec de l'envoi audio.")));
 }catch(Exception e){toast("Impossible de lire l'audio.");}finally{audio.delete();}
 });}catch(Exception e){toast("Service d'envoi indisponible.");}
@@ -1078,13 +1079,7 @@ dl.setText("⬇ Enregistrer dans le téléphone");
 dl.setOnClickListener(v->telechargerVideo(videoLink));
 bubble.addView(dl);
 }else if("audio".equals(type)){
-TextView audio=new TextView(this);
-audio.setText("▶ Message vocal");
-audio.setTextColor(Color.WHITE);
-audio.setTextSize(16);
-String encodedAudio=safeString(d,"audioBase64");
-audio.setOnClickListener(v->lireAudio(encodedAudio));
-bubble.addView(audio);
+bubble.addView(creerBulleAudio(d.getId(),safeString(d,"audioBase64"),safeTimestamp(d,"audioDuree")));
 }else{
 TextView content=new TextView(this);
 content.setText(text==null?"":text);
@@ -1105,6 +1100,102 @@ private void ouvrirVideo(String link){
 if(link==null||link.trim().isEmpty()){toast("Lien vidéo indisponible.");return;}
 try{Intent i=new Intent(this,VideoPlayerActivity.class);i.putExtra("videoUrl",link);startActivity(i);}catch(Exception e){toast("Impossible d'ouvrir la vidéo.");}
 }
+private String idLecture;
+private boolean audioEnPause=false;
+private LinearLayout creerBulleAudio(String msgId,String encoded,long dureeMs){
+LinearLayout row=new LinearLayout(this);
+row.setOrientation(LinearLayout.HORIZONTAL);
+row.setGravity(Gravity.CENTER_VERTICAL);
+row.setLayoutParams(new LinearLayout.LayoutParams(dp(240),LinearLayout.LayoutParams.WRAP_CONTENT));
+TextView btn=new TextView(this);
+btn.setText(msgId.equals(idLecture)&&!audioEnPause?"⏸":"▶");
+btn.setTextColor(Color.WHITE);
+btn.setTextSize(18);
+btn.setGravity(Gravity.CENTER);
+GradientDrawable rond=new GradientDrawable();
+rond.setShape(GradientDrawable.OVAL);
+rond.setColor(Color.rgb(20,110,60));
+btn.setBackground(rond);
+LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(40),dp(40));
+bp.setMargins(0,0,dp(8),0);
+btn.setLayoutParams(bp);
+btn.setOnClickListener(v->basculerAudio(msgId,encoded,btn));
+row.addView(btn);
+LinearLayout ondes=new LinearLayout(this);
+ondes.setOrientation(LinearLayout.HORIZONTAL);
+ondes.setGravity(Gravity.CENTER_VERTICAL);
+Random r=new Random(msgId.hashCode());
+for(int i=0;i<30;i++){
+View barre=new View(this);
+barre.setBackgroundColor(Color.argb(200,255,255,255));
+int h=dp(6)+r.nextInt(dp(16));
+LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(dp(3),h);
+p.setMargins(dp(1),0,dp(1),0);
+ondes.addView(barre,p);
+}
+row.addView(ondes,new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
+TextView duree=new TextView(this);
+duree.setText(dureeMs>0?formatTemps(dureeMs):"--:--");
+duree.setTextColor(Color.WHITE);
+duree.setTextSize(12);
+duree.setPadding(dp(6),0,0,0);
+row.addView(duree);
+return row;
+}
+private void basculerAudio(String msgId,String encoded,TextView btn){
+if(encoded==null||encoded.isEmpty()){toast("Message vocal indisponible.");return;}
+if(msgId.equals(idLecture)&&lecteurAudio!=null){
+try{
+if(lecteurAudio.isPlaying()){
+lecteurAudio.pause();
+audioEnPause=true;
+btn.setText("▶");
+}else{
+lecteurAudio.start();
+audioEnPause=false;
+btn.setText("⏸");
+}
+}catch(Exception e){toast("Lecture impossible.");}
+return;
+}
+arreterLecture();
+idLecture=msgId;
+audioEnPause=false;
+btn.setText("⏸");
+mediaExecutor.execute(()->{
+File temp=null;
+try{
+byte[] bytes=android.util.Base64.decode(encoded,android.util.Base64.DEFAULT);
+temp=new File(getCacheDir(),"play_"+msgId+".m4a");
+try(OutputStream out=new FileOutputStream(temp)){out.write(bytes);}
+final File fichier=temp;
+runOnUiThread(()->demarrerLecture(fichier));
+}catch(Exception e){
+if(temp!=null)temp.delete();
+runOnUiThread(()->{toast("Lecture audio impossible.");arreterLecture();});
+}
+});
+}
+private void demarrerLecture(File fichier){
+if(!activityActive()){fichier.delete();return;}
+try{
+MediaPlayer mp=new MediaPlayer();
+lecteurAudio=mp;
+lecteurFichier=fichier;
+mp.setDataSource(fichier.getAbsolutePath());
+mp.setOnPreparedListener(MediaPlayer::start);
+mp.setOnCompletionListener(x->arreterLecture());
+mp.setOnErrorListener((x,w,k)->{arreterLecture();toast("Lecture audio impossible.");return true;});
+mp.prepareAsync();
+}catch(Exception e){arreterLecture();toast("Lecture audio impossible.");}
+}
+private void arreterLecture(){
+if(lecteurAudio!=null){try{lecteurAudio.release();}catch(Exception ignored){}lecteurAudio=null;}
+if(lecteurFichier!=null){try{lecteurFichier.delete();}catch(Exception ignored){}lecteurFichier=null;}
+idLecture=null;
+audioEnPause=false;
+if(activityActive())afficherMessagesCombines();
+}
 private void lireAudio(String encoded){
 if(encoded==null||encoded.isEmpty()){toast("Message vocal indisponible.");return;}
 arreterLecture();
@@ -1121,24 +1212,6 @@ if(temp!=null)temp.delete();
 toast("Lecture audio impossible.");
 }
 });}catch(Exception e){toast("Service audio indisponible.");}
-}
-private void demarrerLecture(File fichier){
-if(!activityActive()){fichier.delete();return;}
-arreterLecture();
-try{
-MediaPlayer mp=new MediaPlayer();
-lecteurAudio=mp;
-lecteurFichier=fichier;
-mp.setDataSource(fichier.getAbsolutePath());
-mp.setOnPreparedListener(MediaPlayer::start);
-mp.setOnCompletionListener(x->arreterLecture());
-mp.setOnErrorListener((x,w,k)->{arreterLecture();toast("Lecture audio impossible.");return true;});
-mp.prepareAsync();
-}catch(Exception e){arreterLecture();toast("Lecture audio impossible.");}
-}
-private void arreterLecture(){
-if(lecteurAudio!=null){try{lecteurAudio.release();}catch(Exception ignored){}lecteurAudio=null;}
-if(lecteurFichier!=null){try{lecteurFichier.delete();}catch(Exception ignored){}lecteurFichier=null;}
 }
 private void afficherActionsMessage(DocumentSnapshot d){
 boolean mine=senderUid.equals(safeString(d,"sender"));
