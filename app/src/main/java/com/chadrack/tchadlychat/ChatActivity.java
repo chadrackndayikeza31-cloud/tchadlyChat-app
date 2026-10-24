@@ -390,6 +390,7 @@ i.putExtra("channel",channel);
 i.putExtra("type",type);
 i.putExtra("peerName",receiverPseudo);
 i.putExtra("role","caller");
+i.putExtra("peerUid",receiverUid);
 startActivity(i);
 }).addOnFailureListener(e->toast("Appel impossible. Vérifiez la connexion."));
 }

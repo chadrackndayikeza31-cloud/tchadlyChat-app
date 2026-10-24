@@ -26,6 +26,8 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.Map;
 import io.agora.rtc2.Constants;
 import io.agora.rtc2.IRtcEngineEventHandler;
 import io.agora.rtc2.RtcEngine;
@@ -36,6 +38,7 @@ private static final int REQ_PERMS=4001;
 private static final long RING_TIMEOUT=45000L;
 private static final String CALL_TOKEN_URL="https://tchadlychat-server.onrender.com/call-token";
 private String callId,channel,type,peerName,role,myUid;
+private String peerUid;
 private String lastStatus="ringing";
 private boolean isVideo,joined=false,finishing=false,muted=false,camOff=false,speaker=true;
 private RtcEngine engine;
@@ -47,7 +50,8 @@ private final Handler handler=new Handler(Looper.getMainLooper());
 private final Runnable ringTimeout=()->{
 if(!"ringing".equals(lastStatus))return;
 db.collection("calls").document(callId).update("status","missed","endedAt",Timestamp.now())
-.addOnCompleteListener(t->terminer(false));
+.addOnSuccessListener(v->{envoyerMessageManque();terminer(false);})
+.addOnFailureListener(e->terminer(false));
 };
 private final IRtcEngineEventHandler evenements=new IRtcEngineEventHandler(){
 @Override
@@ -80,6 +84,7 @@ channel=i.getStringExtra("channel");
 type=i.getStringExtra("type");
 peerName=i.getStringExtra("peerName");
 role=i.getStringExtra("role");
+peerUid=i.getStringExtra("peerUid");
 if(callId==null||channel==null){finish();return;}
 isVideo="video".equals(type);
 if(peerName==null||peerName.trim().isEmpty())peerName="Utilisateur";
@@ -194,6 +199,20 @@ engine.joinChannel(token,channel,"",0);
 toast("Erreur audio ou vidéo.");
 terminer(true);
 }
+}
+private void envoyerMessageManque(){
+if(peerUid==null||myUid==null)return;
+String texte="video".equals(type)?"🎥 Appel vidéo manqué":"📞 Appel vocal manqué";
+Map<String,Object> m=new HashMap<>();
+m.put("sender",myUid);
+m.put("receiver",peerUid);
+m.put("text",texte);
+m.put("type","text");
+m.put("timestamp",Timestamp.now());
+m.put("delivered",false);
+m.put("seen",false);
+m.put("deleted",false);
+db.collection("private_messages").add(m);
 }
 private void terminer(boolean majFirestore){
 if(finishing)return;
