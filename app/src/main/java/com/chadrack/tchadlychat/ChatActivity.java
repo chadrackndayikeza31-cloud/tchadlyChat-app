@@ -66,6 +66,7 @@ private String audioPath;
 private boolean isRecording=false,premierPlan=false;
 private ImageView imageProfil;
 private LinearLayout headerChat;
+private String photoReceveur;
 private LinearLayout uploadBubble;
 private ProgressBar uploadProgressBar;
 private TextView uploadProgressText;
@@ -263,6 +264,7 @@ ip.setMargins(0,0,dp(12),0);
 imageProfil.setLayoutParams(ip);
 imageProfil.setBackground(formeBulle(Color.LTGRAY,50));
 imageProfil.setClipToOutline(true);
+imageProfil.setOnClickListener(v->{if(photoReceveur==null||photoReceveur.isEmpty())toast("Pas de photo");else ouvrirPhoto(photoReceveur);});
 imageProfil.setImageBitmap(creerAvatar(receiverPseudo));
 tvNomUtilisateur.setTextSize(18);
 tvNomUtilisateur.setTextColor(Color.YELLOW);
@@ -300,6 +302,7 @@ receiverPseudo=nom;
 tvNomUtilisateur.setText(nom);
 if(imageProfil!=null)imageProfil.setImageBitmap(creerAvatar(nom));
 String base64Photo=safeString(d,"photoBase64");
+photoReceveur=base64Photo;
 if(base64Photo!=null&&!base64Photo.trim().isEmpty()){chargerImageProfilBase64(base64Photo);return;}
 String photo=safeString(d,"photoUrl");
 if(photo==null||photo.trim().isEmpty())photo=safeString(d,"photoURL");
@@ -463,11 +466,20 @@ try{if(mediaRecorder!=null)mediaRecorder.reset();}catch(Exception ignored){}
 try{if(mediaRecorder!=null)mediaRecorder.release();}catch(Exception ignored){}
 mediaRecorder=null;
 }
+private void exporterEtAfficher(String url){
+String nom=url.substring(url.lastIndexOf('/')+1);
+String chemin=ExportVideo.exporter(getApplicationContext(),url,nom);
+MAIN.post(()->{
+toast(chemin==null?"Enregistrement impossible.":"Vidéo enregistrée : "+chemin);
+if(activityActive())afficherMessagesCombines();
+});
+}
 private void telechargerVideo(String url){
 toast("Téléchargement en cours...");
+if(VideoCache.existe(getApplicationContext(),url)){mediaExecutor.execute(()->exporterEtAfficher(url));return;}
 VideoCache.telecharger(getApplicationContext(),url,new VideoCache.Callback(){
 @Override
-public void onFini(java.io.File f){MAIN.post(()->{if(activityActive())afficherMessagesCombines();});}
+public void onFini(java.io.File f){exporterEtAfficher(url);}
 @Override
 public void onErreur(String msg){MAIN.post(()->toast("Téléchargement échoué."));}
 });
@@ -973,8 +985,8 @@ dl.setTextColor(Color.WHITE);
 dl.setTextSize(13);
 dl.setPadding(0,dp(6),0,dp(2));
 boolean disponible=VideoCache.existe(this,videoLink);
-dl.setText(disponible?"✓ Téléchargée":"⬇ Télécharger");
-if(!disponible)dl.setOnClickListener(v->telechargerVideo(videoLink));
+dl.setText("⬇ Enregistrer dans le téléphone");
+dl.setOnClickListener(v->telechargerVideo(videoLink));
 bubble.addView(dl);
 }else if("audio".equals(type)){
 TextView audio=new TextView(this);
