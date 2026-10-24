@@ -87,6 +87,7 @@ FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser();
 if(u==null){finish();return;}
 myUid=u.getUid();
 db=FirebaseFirestore.getInstance();
+if("callee".equals(role))db.collection("calls").document(callId).update("status","accepted");
 construireUi();
 String[] besoins=isVideo
 ?new String[]{Manifest.permission.RECORD_AUDIO,Manifest.permission.CAMERA}
