@@ -423,6 +423,83 @@ try(OutputStream out=c.getOutputStream()){out.write(b);}
 c.getResponseCode();
 }catch(Exception ignored){}finally{if(c!=null)c.disconnect();}
 }
+private LinearLayout barreRec;
+private TextView tvChrono,btnRecSupprimer,btnRecPause;
+private boolean enPause=false;
+private long debutRec=0,cumulRec=0;
+private final Runnable chronoRunnable=new Runnable(){
+@Override
+public void run(){
+if(!isRecording)return;
+long t=cumulRec+(enPause?0:System.currentTimeMillis()-debutRec);
+if(tvChrono!=null)tvChrono.setText("● "+formatTemps(t));
+MAIN.postDelayed(this,500L);
+}
+};
+private String formatTemps(long ms){long s=ms/1000;return String.format(Locale.FRANCE,"%02d:%02d",s/60,s%60);}
+private Handler uploadHandler(){return MAIN;}
+private void afficherBarreRec(){
+if(barreRec!=null)return;
+LinearLayout parent=(LinearLayout)etMessage.getParent();
+int idx=parent.indexOfChild(etMessage);
+etMessage.setVisibility(View.GONE);
+btnImage.setVisibility(View.GONE);
+barreRec=new LinearLayout(this);
+barreRec.setOrientation(LinearLayout.HORIZONTAL);
+barreRec.setGravity(Gravity.CENTER_VERTICAL);
+barreRec.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
+btnRecSupprimer=new TextView(this);
+btnRecSupprimer.setText("🗑");
+btnRecSupprimer.setTextSize(24);
+btnRecSupprimer.setPadding(dp(12),dp(8),dp(12),dp(8));
+btnRecSupprimer.setOnClickListener(v->supprimerEnregistrement());
+tvChrono=new TextView(this);
+tvChrono.setText("● 00:00");
+tvChrono.setTextColor(Color.rgb(255,80,80));
+tvChrono.setTextSize(16);
+btnRecPause=new TextView(this);
+btnRecPause.setText("⏸");
+btnRecPause.setTextSize(24);
+btnRecPause.setPadding(dp(12),dp(8),dp(12),dp(8));
+btnRecPause.setOnClickListener(v->basculerPause());
+barreRec.addView(btnRecSupprimer);
+barreRec.addView(tvChrono,new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
+barreRec.addView(btnRecPause);
+parent.addView(barreRec,idx);
+}
+private void masquerBarreRec(){
+MAIN.removeCallbacks(chronoRunnable);
+if(barreRec!=null&&barreRec.getParent()!=null)((ViewGroup)barreRec.getParent()).removeView(barreRec);
+barreRec=null;tvChrono=null;btnRecSupprimer=null;btnRecPause=null;
+etMessage.setVisibility(View.VISIBLE);
+btnImage.setVisibility(View.VISIBLE);
+}
+private void basculerPause(){
+if(mediaRecorder==null||!isRecording)return;
+try{
+if(enPause){
+mediaRecorder.resume();
+debutRec=System.currentTimeMillis();
+enPause=false;
+btnRecPause.setText("⏸");
+}else{
+mediaRecorder.pause();
+cumulRec+=System.currentTimeMillis()-debutRec;
+enPause=true;
+btnRecPause.setText("▶");
+}
+}catch(Exception e){toast("Pause impossible.");}
+}
+private void supprimerEnregistrement(){
+isRecording=false;
+uploadHandler().removeCallbacks(recordTimeoutRunnable);
+try{if(mediaRecorder!=null)mediaRecorder.stop();}catch(Exception ignored){}
+libererMediaRecorder();
+if(audioPath!=null)try{new File(audioPath).delete();}catch(Exception ignored){}
+masquerBarreRec();
+mettreBoutonEnvoyer();
+toast("Enregistrement supprimé.");
+}
 private void commencerEnregistrement(){
 if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO},REQUEST_RECORD_AUDIO);return;}
 try{
@@ -435,20 +512,31 @@ mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AAC);
 mediaRecorder.setAudioEncodingBitRate(64000);
 mediaRecorder.setAudioSamplingRate(44100);
 mediaRecorder.setOutputFile(audioPath);
-mediaRecorder.prepare();mediaRecorder.start();
-isRecording=true;mettreBoutonEnvoyer();toast("Enregistrement en cours… Appuyez pour arrêter.");
+mediaRecorder.prepare();
+mediaRecorder.start();
+isRecording=true;
+enPause=false;
+cumulRec=0;
+debutRec=System.currentTimeMillis();
+mettreBoutonEnvoyer();
+afficherBarreRec();
+MAIN.post(chronoRunnable);
 uploadHandler().removeCallbacks(recordTimeoutRunnable);
 uploadHandler().postDelayed(recordTimeoutRunnable,MAX_RECORD_TIME);
 }catch(Exception e){isRecording=false;libererMediaRecorder();toast("Impossible de démarrer l'enregistrement.");}
 }
-private Handler uploadHandler(){return MAIN;}
 private void arreterEnregistrement(){
 if(!isRecording)return;
 isRecording=false;
 uploadHandler().removeCallbacks(recordTimeoutRunnable);
 boolean ok=true;
-try{if(mediaRecorder!=null)mediaRecorder.stop();}catch(Exception e){ok=false;}
-libererMediaRecorder();mettreBoutonEnvoyer();
+try{
+if(enPause&&mediaRecorder!=null)mediaRecorder.resume();
+if(mediaRecorder!=null)mediaRecorder.stop();
+}catch(Exception e){ok=false;}
+libererMediaRecorder();
+masquerBarreRec();
+mettreBoutonEnvoyer();
 if(audioPath==null)return;
 File f=new File(audioPath);
 if(!ok||!f.exists()||f.length()<100){f.delete();toast("Enregistrement trop court.");return;}
@@ -457,6 +545,7 @@ envoyerAudio(f);
 private void annulerEnregistrement(){
 isRecording=false;
 uploadHandler().removeCallbacks(recordTimeoutRunnable);
+MAIN.removeCallbacks(chronoRunnable);
 try{if(mediaRecorder!=null)mediaRecorder.stop();}catch(Exception ignored){}
 libererMediaRecorder();
 if(audioPath!=null)try{new File(audioPath).delete();}catch(Exception ignored){}
