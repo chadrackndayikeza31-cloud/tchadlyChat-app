@@ -71,6 +71,7 @@ private LinearLayout uploadBubble;
 private ProgressBar uploadProgressBar;
 private TextView uploadProgressText;
 private Button btnRetryUpload;
+private Button btnPauseUpload;
 private final Runnable recordTimeoutRunnable=()->{if(isRecording)arreterEnregistrement();};
 private static class VideoJob{
 String id,uri,mime,senderUid,receiverUid,path,token,sourcePath,state="QUEUED";
@@ -749,6 +750,7 @@ notifierUi();
 afficherToast(ctx,"Vidéo envoyée.");
 }catch(Exception e){
 android.util.Log.e("VIDEO_UPLOAD","Echec envoi video: "+e.getMessage(),e);
+if("PAUSED".equals(job.state)){sauvegarderJobs(ctx);notifierUi();return;}
 job.attempts++;
 if(!job.uploaded){job.path=null;job.token=null;}
 if(job.attempts>=MAX_RETRIES){job.state="FAILED";}
@@ -831,6 +833,7 @@ byte[] b=new byte[65536];int n;
 while((n=in.read(b))!=-1){
 out.write(b,0,n);
 sent+=n;
+if("PAUSED".equals(job.state))throw new IOException("PAUSE");
 if(sent-derniere>=262144||sent==job.size){derniere=sent;job.sent=sent;notifierUi();}
 }
 out.flush();
@@ -877,6 +880,14 @@ sauvegarderJobs(getApplicationContext());
 rafraichirBulleUpload();
 traiterFile(getApplicationContext());
 }
+private void attacherBulleUpload(){
+if(uploadBubble==null||layoutMessages==null||uploadBubble.getParent()!=null)return;
+layoutMessages.addView(uploadBubble);
+}
+private void masquerBulleUpload(){
+if(uploadBubble!=null&&uploadBubble.getParent()!=null)((ViewGroup)uploadBubble.getParent()).removeView(uploadBubble);
+uploadBubble=null;uploadProgressBar=null;uploadProgressText=null;btnRetryUpload=null;btnPauseUpload=null;
+}
 private void creerBulleUpload(){
 LinearLayout bulle=new LinearLayout(this);
 bulle.setOrientation(LinearLayout.VERTICAL);
@@ -900,15 +911,22 @@ uploadProgressText.setTextColor(Color.argb(210,255,255,255));
 uploadProgressText.setTextSize(12);
 uploadProgressText.setPadding(0,dp(6),0,dp(6));
 bulle.addView(uploadProgressText);
+LinearLayout boutons=new LinearLayout(this);
+boutons.setOrientation(LinearLayout.HORIZONTAL);
+boutons.setGravity(Gravity.END);
+btnPauseUpload=new Button(this);
+btnPauseUpload.setAllCaps(false);
+btnPauseUpload.setTextSize(12);
+btnPauseUpload.setOnClickListener(v->{VideoJob j=jobAffiche();if(j!=null&&"PAUSED".equals(j.state))reprendreJob();else mettreEnPause();});
+boutons.addView(btnPauseUpload);
 btnRetryUpload=new Button(this);
 btnRetryUpload.setAllCaps(false);
 btnRetryUpload.setTextSize(12);
 btnRetryUpload.setText("↻ Réessayer");
 btnRetryUpload.setVisibility(View.GONE);
 btnRetryUpload.setOnClickListener(v->reessayerJob());
-LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(-2,-2);
-bp.gravity=Gravity.END;
-bulle.addView(btnRetryUpload,bp);
+boutons.addView(btnRetryUpload);
+bulle.addView(boutons);
 LinearLayout row=new LinearLayout(this);
 row.setOrientation(LinearLayout.HORIZONTAL);
 row.setGravity(Gravity.END);
@@ -918,14 +936,6 @@ row.setLayoutParams(rp);
 row.addView(bulle);
 uploadBubble=row;
 }
-private void attacherBulleUpload(){
-if(uploadBubble==null||layoutMessages==null||uploadBubble.getParent()!=null)return;
-layoutMessages.addView(uploadBubble);
-}
-private void masquerBulleUpload(){
-if(uploadBubble!=null&&uploadBubble.getParent()!=null)((ViewGroup)uploadBubble.getParent()).removeView(uploadBubble);
-uploadBubble=null;uploadProgressBar=null;uploadProgressText=null;btnRetryUpload=null;
-}
 private void rafraichirBulleUpload(){
 if(!activityActive())return;
 VideoJob job=jobAffiche();
@@ -934,23 +944,39 @@ if(uploadBubble==null)creerBulleUpload();
 attacherBulleUpload();
 long total=Math.max(1L,job.size);
 long sent=Math.min(job.sent,total);
+boolean pause="PAUSED".equals(job.state);
 String etat;
-if("FAILED".equals(job.state)){
-etat="Échec de l'envoi";
-btnRetryUpload.setVisibility(View.VISIBLE);
-}else{
-btnRetryUpload.setVisibility(View.GONE);
-if("SAVING".equals(job.state))etat="Enregistrement du message…";
+if("FAILED".equals(job.state))etat="Échec de l'envoi";
+else if(pause)etat="En pause";
+else if("SAVING".equals(job.state))etat="Enregistrement du message…";
 else if("QUEUED".equals(job.state)&&job.retryAt>System.currentTimeMillis())etat="Nouvelle tentative bientôt…";
 else if("QUEUED".equals(job.state))etat="En attente…";
 else etat="Envoi de la vidéo…";
-}
+btnRetryUpload.setVisibility("FAILED".equals(job.state)?View.VISIBLE:View.GONE);
+btnPauseUpload.setVisibility(("FAILED".equals(job.state)||"SAVING".equals(job.state))?View.GONE:View.VISIBLE);
+btnPauseUpload.setText(pause?"▶ Reprendre":"⏸ Pause");
 int nb=nombreEnFile();
 String pourcentage=String.format(Locale.FRANCE,"%.1f%%",sent*100.0/total);
 String taille=String.format(Locale.FRANCE,"%.2f / %.2f Mo",sent/1048576.0,total/1048576.0);
 String ligneFile=nb>1?"\n"+nb+" vidéos dans la file":"";
 uploadProgressBar.setProgress((int)Math.min(1000L,sent*1000L/total));
 uploadProgressText.setText(etat+" · "+pourcentage+"\n"+taille+ligneFile);
+}
+private void mettreEnPause(){
+VideoJob job=jobAffiche();
+if(job==null)return;
+synchronized(JOBS){if("UPLOADING".equals(job.state)||"QUEUED".equals(job.state))job.state="PAUSED";}
+sauvegarderJobs(getApplicationContext());
+rafraichirBulleUpload();
+toast("Envoi en pause.");
+}
+private void reprendreJob(){
+VideoJob job=jobAffiche();
+if(job==null)return;
+synchronized(JOBS){if("PAUSED".equals(job.state)){job.state="QUEUED";job.attempts=0;job.retryAt=0;}}
+sauvegarderJobs(getApplicationContext());
+rafraichirBulleUpload();
+traiterFile(getApplicationContext());
 }
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;

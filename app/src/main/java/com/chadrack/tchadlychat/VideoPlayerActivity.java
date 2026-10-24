@@ -1,4 +1,6 @@
-package com.chadrack.tchadlychat;import android.app.Activity;import android.graphics.Color;import android.net.Uri;import android.os.Bundle;
+package com.chadrack.tchadlychat;import android.app.Activity;import android.content.pm.ActivityInfo;import android.content.res.Configuration;import android.graphics.Color;
+import android.net.Uri;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
@@ -15,10 +17,12 @@ private String url;
 private File local;
 private TextView statut;
 private TextView btnTelecharger;
+private TextView btnRotation;
+private long positionInit=0;
 private final Handler h=new Handler(Looper.getMainLooper());
 @Override
-protected void onCreate(Bundle savedInstanceState){
-super.onCreate(savedInstanceState);
+protected void onCreate(Bundle savedInstanceState){super.onCreate(savedInstanceState);
+if(savedInstanceState!=null)positionInit=savedInstanceState.getLong("pos",0);
 url=getIntent().getStringExtra("videoUrl");
 if(url==null||url.isEmpty()){finish();return;}
 FrameLayout root=new FrameLayout(this);
@@ -40,6 +44,17 @@ FrameLayout.LayoutParams bp=new FrameLayout.LayoutParams(-2,-2);
 bp.gravity=Gravity.TOP|Gravity.END;
 bp.setMargins(0,dp(40),dp(12),0);
 root.addView(btnTelecharger,bp);
+btnRotation=new TextView(this);btnRotation.setText("⤢");
+btnRotation.setTextColor(Color.WHITE);
+btnRotation.setTextSize(20);
+btnRotation.setGravity(Gravity.CENTER);
+btnRotation.setBackgroundColor(Color.argb(160,0,0,0));
+btnRotation.setPadding(dp(12),dp(6),dp(12),dp(6));
+FrameLayout.LayoutParams rp=new FrameLayout.LayoutParams(-2,-2);
+rp.gravity=Gravity.BOTTOM|Gravity.END;
+rp.setMargins(0,0,dp(12),dp(24));
+root.addView(btnRotation,rp);
+btnRotation.setOnClickListener(v->basculerRotation());
 setContentView(root);
 local=VideoCache.fichier(this,url);
 player=new ExoPlayer.Builder(this).build();
@@ -52,8 +67,7 @@ if(state==Player.STATE_READY)statut.setText("");
 });
 if(VideoCache.existe(this,url)){
 jouer(Uri.fromFile(local));
-marquerTelechargee();
-}else{
+marquerTelechargee();}else{
 statut.setText("Chargement...");
 jouer(Uri.parse(url));
 btnTelecharger.setText("⬇ Télécharger");
@@ -70,9 +84,22 @@ h.post(()->btnTelecharger.setText("⬇ Réessayer"));
 });
 }
 }
+@Override
+protected void onSaveInstanceState(Bundle out){
+super.onSaveInstanceState(out);
+if(player!=null)out.putLong("pos",player.getCurrentPosition());
+}
+private void basculerRotation(){
+boolean paysage=getResources().getConfiguration().orientation==Configuration.ORIENTATION_LANDSCAPE;
+setRequestedOrientation(paysage?ActivityInfo.SCREEN_ORIENTATION_PORTRAIT:ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+}
 private void jouer(Uri u){
 player.setMediaItem(MediaItem.fromUri(u));
 player.prepare();
+if(positionInit>0){
+player.seekTo(positionInit);
+positionInit=0;
+}
 player.setPlayWhenReady(true);
 }
 private void marquerTelechargee(){
@@ -93,7 +120,7 @@ h.post(()->marquerTelechargee());
 }
 @Override
 public void onErreur(String msg){
-    h.post(()->{
+h.post(()->{
 btnTelecharger.setText("⬇ Réessayer");
 btnTelecharger.setOnClickListener(v->telechargerMaintenant());
 });
