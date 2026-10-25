@@ -1088,6 +1088,15 @@ carte.addView(icone);
 carte.addView(titre);
 carte.addView(info);
 carte.addView(ouvrir);
+final String fNom=nom;
+final String fMime=(mime==null||mime.isEmpty())?"application/octet-stream":mime;
+TextView dlDoc=new TextView(this);
+dlDoc.setText("⬇ Enregistrer dans le téléphone");
+dlDoc.setTextColor(Color.WHITE);
+dlDoc.setTextSize(13);
+dlDoc.setPadding(0,dp(6),0,0);
+if(url!=null&&!url.isEmpty())dlDoc.setOnClickListener(v->telechargerDocument(url,fNom,fMime));
+carte.addView(dlDoc);
 if(url!=null&&!url.isEmpty()){
 final String u=url;
 final String m=(mime==null||mime.isEmpty())?"*/*":mime;
@@ -1116,6 +1125,20 @@ i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
 startActivity(Intent.createChooser(i,"Ouvrir avec"));
 }catch(Exception e){toast("Impossible d'ouvrir ce fichier.");}
 });
+}
+private void telechargerDocument(String url,String nom,String mime){
+toast("Enregistrement en cours...");
+if(VideoCache.existe(getApplicationContext(),url)){mediaExecutor.execute(()->exporterDocEtAfficher(url,nom,mime));return;}
+VideoCache.telecharger(getApplicationContext(),url,new VideoCache.Callback(){
+@Override
+public void onFini(java.io.File f){exporterDocEtAfficher(url,nom,mime);}
+@Override
+public void onErreur(String msg){MAIN.post(()->toast("Téléchargement échoué."));}
+});
+}
+private void exporterDocEtAfficher(String url,String nom,String mime){
+String chemin=ExportVideo.exporter(getApplicationContext(),url,nom,mime);
+MAIN.post(()->toast(chemin==null?"Enregistrement impossible.":"Fichier enregistré : "+chemin));
 }
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;

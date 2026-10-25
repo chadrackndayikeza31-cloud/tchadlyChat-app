@@ -7,14 +7,15 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
 public class ExportVideo{
-public static String exporter(Context c,String url,String nom){
+public static String exporter(Context c,String url,String nom){return exporter(c,url,nom,"video/mp4");}
+public static String exporter(Context c,String url,String nom,String mime){
 File src=VideoCache.fichier(c,url);
 if(!src.exists())return null;
 try{
 if(Build.VERSION.SDK_INT>=29){
     ContentValues v=new ContentValues();
 v.put(MediaStore.Downloads.DISPLAY_NAME,nom);
-v.put(MediaStore.Downloads.MIME_TYPE,"video/mp4");
+v.put(MediaStore.Downloads.MIME_TYPE,mime);
 v.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/TchadlyChat");
 Uri u=c.getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,v);
 if(u==null)return null;
