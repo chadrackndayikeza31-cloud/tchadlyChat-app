@@ -33,7 +33,7 @@ import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 public class ChatActivity extends Activity{
-private static final int PICK_MEDIA=1001,REQUEST_RECORD_AUDIO=2001,REQUEST_NOTIFICATION_PERMISSION=2002,MAX_RETRIES=8;
+private static final int PICK_MEDIA=1001,PICK_DOC=1003,REQUEST_RECORD_AUDIO=2001,REQUEST_NOTIFICATION_PERMISSION=2002,MAX_RETRIES=8;
 private static final long MAX_RECORD_TIME=60000L,MAX_VIDEO_SIZE=50L*1024L*1024L,UPLOAD_RETRY_DELAY=5000L;
 private static final String NOTIFICATION_SERVER_URL="https://tchadlychat-server.onrender.com/notify";
 private static final String VIDEO_UPLOAD_SERVER_URL="https://tchadlychat-server.onrender.com/create-video-upload";
@@ -75,6 +75,7 @@ private Button btnPauseUpload;
 private final Runnable recordTimeoutRunnable=()->{if(isRecording)arreterEnregistrement();};
 private static class VideoJob{
 String id,uri,mime,senderUid,receiverUid,path,token,sourcePath,state="QUEUED";
+String kind="video",bucket="videos",nom="";
 long size,retryAt;
 volatile long sent;
 int attempts;
@@ -86,7 +87,7 @@ o.put("sender",senderUid);o.put("receiver",receiverUid);
 o.put("path",path==null?JSONObject.NULL:path);
 o.put("token",token==null?JSONObject.NULL:token);
 o.put("source",sourcePath==null?JSONObject.NULL:sourcePath);
-o.put("state",state);o.put("attempts",attempts);o.put("sent",sent);o.put("uploaded",uploaded);o.put("retryAt",retryAt);
+o.put("state",state);o.put("attempts",attempts);o.put("sent",sent);o.put("uploaded",uploaded);o.put("retryAt",retryAt);o.put("kind",kind);o.put("bucket",bucket);o.put("nom",nom);
 return o;
 }
 static VideoJob fromJson(JSONObject o){
@@ -97,7 +98,7 @@ j.path=o.isNull("path")?null:o.optString("path");
 j.token=o.isNull("token")?null:o.optString("token");
 j.sourcePath=o.isNull("source")?null:o.optString("source");
 j.state=o.optString("state","QUEUED");j.attempts=o.optInt("attempts");
-j.sent=o.optLong("sent");j.uploaded=o.optBoolean("uploaded",false);j.retryAt=o.optLong("retryAt");
+j.sent=o.optLong("sent");j.uploaded=o.optBoolean("uploaded",false);j.retryAt=o.optLong("retryAt");j.kind=o.optString("kind","video");j.bucket=o.optString("bucket","videos");j.nom=o.optString("nom","");
 return j;
 }
 }
@@ -139,6 +140,7 @@ btnEnvoyer.setOnClickListener(v->{if(isRecording){arreterEnregistrement();return
 btnImage.setOnClickListener(v->choisirMedia());
 chargerMessages();
 chargerJobs(getApplicationContext());
+ajouterBoutonDocument();
 traiterFile(getApplicationContext());
 }
 private boolean activityActive(){return !isFinishing()&&!isDestroyed();}
@@ -633,6 +635,7 @@ try{startActivityForResult(i,PICK_MEDIA);}catch(Exception e){toast("Impossible d
 @Override
 protected void onActivityResult(int requestCode,int resultCode,Intent data){
 super.onActivityResult(requestCode,resultCode,data);
+if(requestCode==PICK_DOC&&resultCode==RESULT_OK&&data!=null&&data.getData()!=null){envoyerDocument(data.getData());return;}
 if(requestCode!=PICK_MEDIA||resultCode!=RESULT_OK||data==null||data.getData()==null)return;
 Uri uri=data.getData();
 try{int flags=data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);getContentResolver().takePersistableUriPermission(uri,flags);}catch(Exception ignored){}
@@ -741,7 +744,7 @@ job.state="SAVING";
 sauvegarderJobs(ctx);
 notifierUi();
 enregistrerMessageVideo(job);
-notifierServeur(job.id);VideoCache.copierLocal(ctx,SUPABASE_URL+"/storage/v1/object/public/videos/"+job.path,new File(job.sourcePath));
+notifierServeur(job.id);if("video".equals(job.kind))VideoCache.copierLocal(ctx,SUPABASE_URL+"/storage/v1/object/public/videos/"+job.path,new File(job.sourcePath));
 File f=new File(job.sourcePath);
 if(f.exists())f.delete();
 synchronized(JOBS){JOBS.remove(job);}
@@ -804,7 +807,7 @@ c.setRequestMethod("POST");c.setConnectTimeout(30000);c.setReadTimeout(60000);c.
 c.setRequestProperty("Content-Type","application/json; charset=UTF-8");
 ajouterAuthStatic(c);
 JSONObject body=new JSONObject();
-body.put("userId",job.senderUid);body.put("receiverUid",job.receiverUid);body.put("fileSize",job.size);body.put("mimeType",job.mime);body.put("fileName",new File(job.sourcePath).getName());
+body.put("userId",job.senderUid);body.put("receiverUid",job.receiverUid);body.put("fileSize",job.size);body.put("mimeType",job.mime);body.put("fileName",new File(job.sourcePath).getName());body.put("bucket",job.bucket);body.put("ext",extOf(job));
 byte[] bytes=body.toString().getBytes(StandardCharsets.UTF_8);
 c.setFixedLengthStreamingMode(bytes.length);
 try(OutputStream out=c.getOutputStream()){out.write(bytes);}
@@ -820,7 +823,7 @@ job.token=s.getString("token");
 private static void uploadFichier(VideoJob job)throws Exception{
 File f=new File(job.sourcePath);
 if(!f.exists()||f.length()!=job.size)throw new IOException("Fichier temporaire introuvable");
-String url=SUPABASE_URL+"/storage/v1/object/upload/sign/videos/"+job.path+"?token="+URLEncoder.encode(job.token,"UTF-8");
+String url=SUPABASE_URL+"/storage/v1/object/upload/sign/"+job.bucket+"/"+job.path+"?token="+URLEncoder.encode(job.token,"UTF-8");
 HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
 try{
 c.setRequestMethod("PUT");c.setConnectTimeout(30000);c.setReadTimeout(180000);c.setDoOutput(true);c.setUseCaches(false);
@@ -845,10 +848,10 @@ job.sent=job.size;
 }finally{c.disconnect();}
 }
 private static void enregistrerMessageVideo(VideoJob job)throws Exception{
-String videoUrl=SUPABASE_URL+"/storage/v1/object/public/videos/"+job.path;
+String videoUrl=SUPABASE_URL+"/storage/v1/object/public/"+job.bucket+"/"+job.path;
 Map<String,Object> m=new HashMap<>();
-m.put("sender",job.senderUid);m.put("receiver",job.receiverUid);m.put("text","Vidéo");m.put("type","video");
-m.put("videoUrl",videoUrl);m.put("videoPath",job.path);m.put("videoMimeType",job.mime);m.put("videoSize",job.size);
+m.put("sender",job.senderUid);m.put("receiver",job.receiverUid);m.put("text","Vidéo");m.put("type",job.kind);
+m.put("videoUrl",videoUrl);m.put("videoPath",job.path);m.put("videoMimeType",job.mime);m.put("videoSize",job.size);m.put("nom",job.nom);
 m.put("timestamp",Timestamp.now());m.put("delivered",false);m.put("seen",false);m.put("deleted",false);
 Tasks.await(FirebaseFirestore.getInstance().collection("private_messages").document(job.id).set(m),30,TimeUnit.SECONDS);
 }
@@ -978,6 +981,142 @@ sauvegarderJobs(getApplicationContext());
 rafraichirBulleUpload();
 traiterFile(getApplicationContext());
 }
+private void ajouterBoutonDocument(){
+if(!(btnEnvoyer.getParent() instanceof LinearLayout))return;
+LinearLayout parent=(LinearLayout)btnEnvoyer.getParent();
+int idx=parent.indexOfChild(btnEnvoyer);
+TextView b=new TextView(this);
+b.setText("📎");
+b.setTextSize(22);
+b.setGravity(Gravity.CENTER);
+b.setTextColor(Color.WHITE);
+GradientDrawable rond=new GradientDrawable();
+rond.setShape(GradientDrawable.OVAL);
+rond.setColor(Color.rgb(60,70,85));
+b.setBackground(rond);
+LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(dp(44),dp(44));
+p.setMargins(dp(4),0,dp(4),0);
+p.gravity=Gravity.CENTER_VERTICAL;
+b.setLayoutParams(p);
+b.setOnClickListener(v->choisirDocument());
+parent.addView(b,idx);
+}
+private void choisirDocument(){
+Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
+i.addCategory(Intent.CATEGORY_OPENABLE);
+i.setType("*/*");
+i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+try{startActivityForResult(i,PICK_DOC);}catch(Exception e){toast("Impossible d'ouvrir les fichiers.");}
+}
+private void envoyerDocument(Uri uri){
+if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;
+String nom="document";
+Cursor c=null;
+try{
+c=getContentResolver().query(uri,new String[]{OpenableColumns.DISPLAY_NAME},null,null,null);
+if(c!=null&&c.moveToFirst()){int i=c.getColumnIndex(OpenableColumns.DISPLAY_NAME);if(i>=0)nom=c.getString(i);}
+}catch(Exception ignored){}finally{if(c!=null)c.close();}
+long taille=obtenirTailleUri(uri);
+if(taille<=0){toast("Impossible de lire le fichier.");return;}
+if(taille>MAX_VIDEO_SIZE){toast("Le fichier dépasse 50 Mo.");return;}
+String mime=getContentResolver().getType(uri);
+if(mime==null||mime.isEmpty())mime="application/octet-stream";
+try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}
+VideoJob job=new VideoJob();
+job.id=firestore.collection("private_messages").document().getId();
+job.uri=uri.toString();
+job.mime=mime;
+job.size=taille;
+job.senderUid=senderUid;
+job.receiverUid=receiverUid;
+job.kind="document";
+job.bucket="documents";
+job.nom=nom;
+job.state="QUEUED";
+synchronized(JOBS){JOBS.add(job);}
+sauvegarderJobs(getApplicationContext());
+toast("Fichier ajouté à l'envoi.");
+rafraichirBulleUpload();
+traiterFile(getApplicationContext());
+}
+private static String extOf(VideoJob j){
+if(!"document".equals(j.kind))return "mp4";
+String n=j.nom==null?"":j.nom;
+int i=n.lastIndexOf('.');
+return i<0?"bin":n.substring(i+1).toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]","");
+}
+private String iconeFichier(String nom){
+String n=nom==null?"":nom.toLowerCase(Locale.ROOT);
+if(n.endsWith(".pdf"))return "📕";
+if(n.endsWith(".doc")||n.endsWith(".docx"))return "📘";
+if(n.endsWith(".xls")||n.endsWith(".xlsx"))return "📗";
+if(n.endsWith(".ppt")||n.endsWith(".pptx"))return "📙";
+if(n.endsWith(".zip")||n.endsWith(".rar"))return "🗜";
+if(n.endsWith(".mp3")||n.endsWith(".m4a")||n.endsWith(".wav"))return "🎵";
+if(n.endsWith(".jpg")||n.endsWith(".jpeg")||n.endsWith(".png"))return "🖼";
+if(n.endsWith(".mp4")||n.endsWith(".mkv")||n.endsWith(".avi"))return "🎞";
+return "📄";
+}
+private LinearLayout creerCarteDocument(DocumentSnapshot d){
+String url=safeString(d,"videoUrl");
+String mime=safeString(d,"videoMimeType");
+String nom=safeString(d,"nom");
+if(nom==null||nom.isEmpty())nom="Document";
+long taille=safeTimestamp(d,"videoSize");
+LinearLayout carte=new LinearLayout(this);
+carte.setOrientation(LinearLayout.VERTICAL);
+carte.setPadding(dp(12),dp(10),dp(12),dp(10));
+carte.setBackground(formeBulle(Color.rgb(35,35,35),12));
+TextView icone=new TextView(this);
+icone.setText(iconeFichier(nom));
+icone.setTextSize(28);
+TextView titre=new TextView(this);
+titre.setText(nom);
+titre.setTextColor(Color.WHITE);
+titre.setTextSize(14);
+titre.setMaxLines(2);
+TextView info=new TextView(this);
+info.setText(String.format(Locale.FRANCE,"%.2f Mo",taille/1048576.0));
+info.setTextColor(Color.LTGRAY);
+info.setTextSize(12);
+TextView ouvrir=new TextView(this);
+ouvrir.setText("▶ Ouvrir le fichier");
+ouvrir.setTextColor(Color.WHITE);
+ouvrir.setTextSize(13);
+ouvrir.setPadding(0,dp(6),0,0);
+carte.addView(icone);
+carte.addView(titre);
+carte.addView(info);
+carte.addView(ouvrir);
+if(url!=null&&!url.isEmpty()){
+final String u=url;
+final String m=(mime==null||mime.isEmpty())?"*/*":mime;
+carte.setOnClickListener(v->ouvrirDocument(u,m));
+}
+return carte;
+}
+private void ouvrirDocument(String url,String mime){
+if(VideoCache.existe(getApplicationContext(),url)){lancerOuverture(url,mime);return;}
+toast("Téléchargement en cours...");
+VideoCache.telecharger(getApplicationContext(),url,new VideoCache.Callback(){
+@Override
+public void onFini(java.io.File f){lancerOuverture(url,mime);}
+@Override
+public void onErreur(String msg){MAIN.post(()->toast("Téléchargement échoué."));}
+});
+}
+private void lancerOuverture(String url,String mime){
+MAIN.post(()->{
+try{
+java.io.File f=VideoCache.fichier(getApplicationContext(),url);
+Uri u=androidx.core.content.FileProvider.getUriForFile(ChatActivity.this,"com.chadrack.tchadlychat.fileprovider",f);
+Intent i=new Intent(Intent.ACTION_VIEW);
+i.setDataAndType(u,mime);
+i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+startActivity(Intent.createChooser(i,"Ouvrir avec"));
+}catch(Exception e){toast("Impossible d'ouvrir ce fichier.");}
+});
+}
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;
 final String cible=receiverUid;
@@ -1105,7 +1244,7 @@ boolean disponible=VideoCache.existe(this,videoLink);
 dl.setText("⬇ Enregistrer dans le téléphone");
 dl.setOnClickListener(v->telechargerVideo(videoLink));
 bubble.addView(dl);
-}else if("audio".equals(type)){
+}else if("document".equals(type)){bubble.addView(creerCarteDocument(d));}else if("audio".equals(type)){
 bubble.addView(creerBulleAudio(d.getId(),safeString(d,"audioBase64"),safeTimestamp(d,"audioDuree")));
 }else{
 TextView content=new TextView(this);
