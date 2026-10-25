@@ -1048,6 +1048,7 @@ d.getReference().update(updates);
 }
 }
 private void afficherBulleMessage(DocumentSnapshot d){
+if(masqueePourMoi(d))return;
 String sender=safeString(d,"sender");
 String type=safeString(d,"type");
 String text=safeString(d,"text");
@@ -1117,6 +1118,55 @@ ajouterInfos(bubble,mine,timestamp,safeBoolean(d,"delivered"),safeBoolean(d,"see
 layout.addView(bubble);
 layoutMessages.addView(layout);
 bubble.setOnLongClickListener(v->{afficherActionsMessage(d);return true;});
+}
+private void afficherActionsMessage(DocumentSnapshot d){
+boolean mine=senderUid.equals(safeString(d,"sender"));
+boolean texte="text".equals(safeString(d,"type"));
+List<String> actions=new ArrayList<>();
+if(texte)actions.add("Copier");
+if(mine&&texte)actions.add("Modifier");
+actions.add("Supprimer");
+new AlertDialog.Builder(this).setItems(actions.toArray(new String[0]),(dialog,which)->{
+String action=actions.get(which);
+if("Copier".equals(action))copierMessage(d);
+else if("Modifier".equals(action))preparerModification(d);
+else if(mine)choisirSuppression(d);
+else supprimerPourTous(d);
+}).show();
+}
+private void copierMessage(DocumentSnapshot d){
+String text=safeString(d,"text");
+if(text==null)text="";
+ClipboardManager clipboard=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
+if(clipboard!=null){clipboard.setPrimaryClip(ClipData.newPlainText("message",text));toast("Copié.");}
+}
+private void preparerModification(DocumentSnapshot d){
+editingMessageId=d.getId();
+etMessage.setText(safeString(d,"text"));
+etMessage.setSelection(etMessage.length());
+mettreBoutonEnvoyer();
+}
+private void choisirSuppression(DocumentSnapshot d){
+new AlertDialog.Builder(this)
+.setTitle("Supprimer le message")
+.setPositiveButton("Pour tous",(x,w)->supprimerPourTous(d))
+.setNegativeButton("Pour vous",(x,w)->supprimerPourMoi(d))
+.setNeutralButton("Annuler",null)
+.show();
+}
+private void supprimerPourMoi(DocumentSnapshot d){
+firestore.collection("private_messages").document(d.getId())
+.update("hiddenFor",FieldValue.arrayUnion(senderUid))
+.addOnFailureListener(e->toast("Suppression impossible."));
+}
+private void supprimerPourTous(DocumentSnapshot d){
+firestore.collection("private_messages").document(d.getId())
+.update("deleted",true,"deletedAt",Timestamp.now())
+.addOnFailureListener(e->toast("Suppression impossible."));
+}
+private boolean masqueePourMoi(DocumentSnapshot d){
+Object o=d.get("hiddenFor");
+return o instanceof List && ((List<?>)o).contains(senderUid);
 }
 private void ouvrirPhoto(String encoded){
 if(encoded==null||encoded.isEmpty()){toast("Image indisponible.");return;}
@@ -1238,31 +1288,6 @@ if(temp!=null)temp.delete();
 toast("Lecture audio impossible.");
 }
 });}catch(Exception e){toast("Service audio indisponible.");}
-}
-private void afficherActionsMessage(DocumentSnapshot d){
-boolean mine=senderUid.equals(safeString(d,"sender"));
-String[] actions=mine?new String[]{"Copier","Modifier","Supprimer"}:new String[]{"Copier"};
-new AlertDialog.Builder(this).setItems(actions,(dialog,which)->{
-String action=actions[which];
-if("Copier".equals(action)){
-String text=safeString(d,"text");
-if(text==null)text="";
-String type=safeString(d,"type");
-if("image".equals(type))text="Image";
-if("video".equals(type))text=safeString(d,"videoUrl");
-if("audio".equals(type))text="Message vocal";
-ClipboardManager clipboard=(ClipboardManager)getSystemService(Context.CLIPBOARD_SERVICE);
-if(clipboard!=null){clipboard.setPrimaryClip(ClipData.newPlainText("message",text==null?"":text));toast("Copié.");}
-}else if("Modifier".equals(action)){
-if(!"text".equals(safeString(d,"type"))){toast("Seuls les messages texte peuvent être modifiés.");return;}
-editingMessageId=d.getId();
-etMessage.setText(safeString(d,"text"));
-etMessage.setSelection(etMessage.length());
-mettreBoutonEnvoyer();
-}else if("Supprimer".equals(action)){
-new AlertDialog.Builder(this).setMessage("Supprimer ce message ?").setNegativeButton("Annuler",null).setPositiveButton("Supprimer",(x,w)->firestore.collection("private_messages").document(d.getId()).update("deleted",true,"deletedAt",Timestamp.now()).addOnFailureListener(e->toast("Suppression impossible."))).show();
-}
-}).show();
 }
 /*@Override
 protected void onResume(){
