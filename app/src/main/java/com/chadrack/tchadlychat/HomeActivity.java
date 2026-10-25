@@ -58,6 +58,9 @@ public class HomeActivity extends Activity {
     private String currentUid;
     private List<UserInfo> utilisateurs=new ArrayList<>();
     private Button btnDeconnecter;
+    private boolean modeTransfert=false;
+    private String messageATransferer,cibleUid,cibleNom;
+    private LinearLayout barreTransfert;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -82,6 +85,7 @@ public class HomeActivity extends Activity {
         }
 
         currentUid=user.getUid();
+        lireModeTransfert();
         creerBoutonDeconnexion();
         demanderPermissionNotification();
         enregistrerFcmToken();
@@ -726,25 +730,7 @@ if(accepte)Toast.makeText(this,"Appel accepté.",Toast.LENGTH_SHORT).show();
         final String receiverUid=utilisateur.uid;
         final String receiverPseudo=utilisateur.pseudo;
 
-        ligne.setOnClickListener(v->{
-            Intent intent=new Intent(
-                    HomeActivity.this,
-                    //VideoPlayerActivity.class
-                    ChatActivity.class
-            );
-
-            intent.putExtra(
-                    "receiverUid",
-                    receiverUid
-            );
-
-            intent.putExtra(
-                    "receiverPseudo",
-                    receiverPseudo
-            );
-
-            startActivity(intent);
-        });
+ligne.setOnClickListener(v->surClicUtilisateur(receiverUid,receiverPseudo));
 
         usersContainer.addView(ligne);
 
@@ -766,6 +752,98 @@ if(accepte)Toast.makeText(this,"Appel accepté.",Toast.LENGTH_SHORT).show();
         usersContainer.addView(separation);
     }
 
+private void lireModeTransfert(){
+Intent it=getIntent();
+if(it!=null&&"transfert".equals(it.getStringExtra("mode"))){
+modeTransfert=true;
+messageATransferer=it.getStringExtra("messageId");
+Toast.makeText(this,"Choisissez le destinataire",Toast.LENGTH_SHORT).show();
+}
+}
+private void surClicUtilisateur(String uid,String pseudo){
+if(modeTransfert){
+cibleUid=uid;
+cibleNom=pseudo;
+afficherBarreTransfert();
+return;
+}
+Intent intent=new Intent(HomeActivity.this,ChatActivity.class);
+intent.putExtra("receiverUid",uid);
+intent.putExtra("receiverPseudo",pseudo);
+startActivity(intent);
+}
+private void afficherBarreTransfert(){
+if(barreTransfert==null){
+barreTransfert=new LinearLayout(this);
+barreTransfert.setOrientation(LinearLayout.HORIZONTAL);
+barreTransfert.setGravity(Gravity.CENTER);
+barreTransfert.setPadding(dp(12),dp(10),dp(12),dp(10));
+barreTransfert.setBackgroundColor(Color.rgb(20,28,40));
+TextView envoyer=new TextView(this);
+envoyer.setText("Envoyer");
+envoyer.setTextColor(Color.WHITE);
+envoyer.setTextSize(16);
+envoyer.setGravity(Gravity.CENTER);
+envoyer.setBackgroundColor(Color.rgb(46,180,95));
+envoyer.setPadding(dp(12),dp(12),dp(12),dp(12));
+envoyer.setOnClickListener(v->transfererVers(cibleUid));
+LinearLayout.LayoutParams p1=new LinearLayout.LayoutParams(0,-2,1f);
+p1.setMargins(dp(6),0,dp(6),0);
+barreTransfert.addView(envoyer,p1);
+TextView retour=new TextView(this);
+retour.setText("Retour");
+retour.setTextColor(Color.WHITE);
+retour.setTextSize(16);
+retour.setGravity(Gravity.CENTER);
+retour.setBackgroundColor(Color.rgb(70,110,170));
+retour.setPadding(dp(12),dp(12),dp(12),dp(12));
+retour.setOnClickListener(v->annulerSelection());
+LinearLayout.LayoutParams p2=new LinearLayout.LayoutParams(0,-2,1f);
+p2.setMargins(dp(6),0,dp(6),0);
+barreTransfert.addView(retour,p2);
+FrameLayout root=(FrameLayout)findViewById(android.R.id.content);
+FrameLayout.LayoutParams lp=new FrameLayout.LayoutParams(-1,-2);
+lp.gravity=Gravity.BOTTOM;
+root.addView(barreTransfert,lp);
+}
+barreTransfert.setVisibility(View.VISIBLE);
+}
+private void annulerSelection(){
+cibleUid=null;
+cibleNom=null;
+if(barreTransfert!=null)barreTransfert.setVisibility(View.GONE);
+}
+private void transfererVers(String destUid){
+if(destUid==null||messageATransferer==null){
+Toast.makeText(this,"Choisissez un destinataire.",Toast.LENGTH_SHORT).show();
+return;
+}
+firestore.collection("private_messages").document(messageATransferer).get().addOnSuccessListener(doc->{
+if(!doc.exists()){
+Toast.makeText(this,"Message introuvable.",Toast.LENGTH_SHORT).show();
+return;
+}
+Map<String,Object> m=new HashMap<>(doc.getData());
+m.remove("hiddenFor");
+m.remove("deleted");
+m.remove("deletedAt");
+m.remove("edited");
+m.remove("editedAt");
+m.remove("seen");
+m.remove("delivered");
+m.put("sender",currentUid);
+m.put("receiver",destUid);
+m.put("timestamp",Timestamp.now());
+m.put("delivered",false);
+m.put("seen",false);
+m.put("deleted",false);
+m.put("forwarded",true);
+firestore.collection("private_messages").add(m).addOnSuccessListener(ref->{
+Toast.makeText(this,"Message transféré.",Toast.LENGTH_SHORT).show();
+finish();
+}).addOnFailureListener(e->Toast.makeText(this,"Transfert impossible.",Toast.LENGTH_SHORT).show());
+}).addOnFailureListener(e->Toast.makeText(this,"Lecture impossible.",Toast.LENGTH_SHORT).show());
+}
     private int dp(int value){
         return (int)(
                 value*

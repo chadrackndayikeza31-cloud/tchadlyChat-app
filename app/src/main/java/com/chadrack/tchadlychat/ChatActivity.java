@@ -1125,14 +1125,22 @@ boolean texte="text".equals(safeString(d,"type"));
 List<String> actions=new ArrayList<>();
 if(texte)actions.add("Copier");
 if(mine&&texte)actions.add("Modifier");
+actions.add("Transférer");
 actions.add("Supprimer");
 new AlertDialog.Builder(this).setItems(actions.toArray(new String[0]),(dialog,which)->{
 String action=actions.get(which);
 if("Copier".equals(action))copierMessage(d);
 else if("Modifier".equals(action))preparerModification(d);
+else if("Transférer".equals(action))transfererMessage(d);
 else if(mine)choisirSuppression(d);
 else supprimerPourTous(d);
 }).show();
+}
+private void transfererMessage(DocumentSnapshot d){
+Intent i=new Intent(this,HomeActivity.class);
+i.putExtra("mode","transfert");
+i.putExtra("messageId",d.getId());
+startActivity(i);
 }
 private void copierMessage(DocumentSnapshot d){
 String text=safeString(d,"text");
