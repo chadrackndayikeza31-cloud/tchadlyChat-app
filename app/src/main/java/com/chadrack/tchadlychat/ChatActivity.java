@@ -733,6 +733,7 @@ finally{WORKER_BUSY.set(false);MAIN.post(()->traiterFile(ctx));}
 });
 }
 private static void executerJob(Context ctx,VideoJob job){
+if("document".equals(job.kind)){executerDocDrive(ctx,job);return;}
 try{
 if(job.sourcePath==null){job.sourcePath=copierSource(ctx,job);sauvegarderJobs(ctx);}
 if(!job.uploaded){
@@ -820,6 +821,100 @@ if(!s.optBoolean("success",false))throw new IOException("Session refusée: "+s.o
 job.path=s.getString("path");
 job.token=s.getString("token");
 }finally{c.disconnect();}
+}
+private static JSONObject postJsonAuth(String url,JSONObject body)throws Exception{
+HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
+try{
+c.setRequestMethod("POST");c.setConnectTimeout(60000);c.setReadTimeout(60000);c.setDoOutput(true);
+c.setRequestProperty("Content-Type","application/json; charset=UTF-8");
+ajouterAuthStatic(c);
+byte[] b=body.toString().getBytes(StandardCharsets.UTF_8);
+c.setFixedLengthStreamingMode(b.length);
+try(OutputStream out=c.getOutputStream()){out.write(b);}
+int code=c.getResponseCode();
+String t=lireFlux(code>=200&&code<300?c.getInputStream():c.getErrorStream());
+if(code<200||code>=300)throw new IOException("HTTP "+code+" "+t);
+JSONObject r=new JSONObject(t);
+if(!r.optBoolean("success",false))throw new IOException(r.optString("error"));
+return r;
+}finally{c.disconnect();}
+}
+private static String envoyerDriveResumable(VideoJob job)throws Exception{
+File f=new File(job.sourcePath);
+long debut=0;
+HttpURLConnection s=(HttpURLConnection)new URL(job.path).openConnection();
+try{
+s.setRequestMethod("PUT");s.setConnectTimeout(30000);s.setReadTimeout(60000);
+s.setRequestProperty("Content-Range","bytes */"+job.size);
+int code=s.getResponseCode();
+if(code==200||code==201)return new JSONObject(lireFlux(s.getInputStream())).getString("id");
+String range=s.getHeaderField("Range");
+if(range!=null)debut=Long.parseLong(range.substring(range.lastIndexOf('-')+1))+1;
+}finally{s.disconnect();}
+if(debut>=job.size)throw new IOException("Upload Drive incomplet");
+HttpURLConnection p=(HttpURLConnection)new URL(job.path).openConnection();
+try{
+p.setRequestMethod("PUT");p.setConnectTimeout(30000);p.setReadTimeout(600000);p.setDoOutput(true);p.setUseCaches(false);
+p.setFixedLengthStreamingMode(job.size-debut);
+p.setRequestProperty("Content-Type",job.mime);
+p.setRequestProperty("Content-Range","bytes "+debut+"-"+(job.size-1)+"/"+job.size);
+try(InputStream in=new FileInputStream(f);OutputStream out=p.getOutputStream()){
+long saute=0;
+while(saute<debut){long k=in.skip(debut-saute);if(k<=0)throw new IOException("Saut impossible");saute+=k;}
+byte[] b=new byte[65536];
+int n;
+long sent=debut,derniere=debut;
+while((n=in.read(b))!=-1){
+out.write(b,0,n);sent+=n;
+if("PAUSED".equals(job.state))throw new IOException("PAUSE");
+if(sent-derniere>=262144||sent==job.size){derniere=sent;job.sent=sent;notifierUi();}
+}
+out.flush();
+}
+int code=p.getResponseCode();
+String rep=lireFlux(code>=200&&code<300?p.getInputStream():p.getErrorStream());
+if(code==200||code==201)return new JSONObject(rep).getString("id");
+throw new IOException("Drive upload HTTP "+code+" "+rep);
+}finally{p.disconnect();}
+}
+private static void executerDocDrive(Context ctx,VideoJob job){
+try{
+if(job.sourcePath==null){job.sourcePath=copierSource(ctx,job);sauvegarderJobs(ctx);}
+if(!job.uploaded){
+if(job.path==null||job.token==null){
+JSONObject init=postJsonAuth("https://tchadlychat-server.onrender.com/create-drive-upload",new JSONObject().put("fileSize",job.size).put("mimeType",job.mime).put("fileName",job.nom));
+job.path=init.getString("uploadUrl");
+job.token="drive";
+sauvegarderJobs(ctx);
+}
+job.state="UPLOADING";
+notifierUi();
+String fileId=envoyerDriveResumable(job);
+JSONObject fin=postJsonAuth("https://tchadlychat-server.onrender.com/finish-drive-upload",new JSONObject().put("fileId",fileId));
+job.parts=fin.getString("url");
+job.uploaded=true;
+sauvegarderJobs(ctx);
+}
+job.state="SAVING";
+sauvegarderJobs(ctx);
+notifierUi();
+enregistrerDocMulti(job,job.parts);
+notifierServeur(job.id);
+File f=new File(job.sourcePath);
+if(f.exists())f.delete();
+synchronized(JOBS){JOBS.remove(job);}
+sauvegarderJobs(ctx);
+notifierUi();
+afficherToast(ctx,"Document envoyé.");
+}catch(Exception e){
+android.util.Log.e("VIDEO_UPLOAD","Echec document Drive: "+e.getMessage(),e);
+if("PAUSED".equals(job.state)){sauvegarderJobs(ctx);notifierUi();return;}
+job.attempts++;
+if(job.attempts>=MAX_RETRIES){job.state="FAILED";}
+else{job.state="QUEUED";job.retryAt=System.currentTimeMillis()+UPLOAD_RETRY_DELAY*Math.min(job.attempts,6);}
+sauvegarderJobs(ctx);
+notifierUi();
+}
 }
 private static void uploadFichier(VideoJob job)throws Exception{
 File f=new File(job.sourcePath);
