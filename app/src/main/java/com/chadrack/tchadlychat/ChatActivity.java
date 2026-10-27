@@ -918,6 +918,13 @@ sauvegarderJobs(ctx);
 notifierUi();
 }
 }
+private static void enregistrerDocMulti(VideoJob job,String parts)throws Exception{
+Map<String,Object> m=new HashMap<>();
+m.put("sender",job.senderUid);m.put("receiver",job.receiverUid);m.put("text","Document");m.put("type","document");
+m.put("videoUrl",parts);m.put("videoPath",job.id);m.put("videoMimeType",job.mime);m.put("videoSize",job.size);m.put("nom",job.nom);
+m.put("timestamp",Timestamp.now());m.put("delivered",false);m.put("seen",false);m.put("deleted",false);
+Tasks.await(FirebaseFirestore.getInstance().collection("private_messages").document(job.id).set(m),30,TimeUnit.SECONDS);
+}
 private static void uploadFichier(VideoJob job)throws Exception{
 File f=new File(job.sourcePath);
 if(!f.exists()||f.length()!=job.size)throw new IOException("Fichier temporaire introuvable");
