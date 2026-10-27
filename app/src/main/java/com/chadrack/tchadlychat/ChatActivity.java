@@ -78,18 +78,34 @@ private static class VideoJob{
 String id,uri,mime,senderUid,receiverUid,path,token,sourcePath,state="QUEUED";
 String kind="video",bucket="videos",nom="",parts="";
 int partsDone=0;
-String kind="video",bucket="videos",nom="";
 long size,retryAt;
 volatile long sent;
 int attempts;
+boolean uploaded;
 JSONObject toJson()throws Exception{
 JSONObject o=new JSONObject();
 o.put("id",id);o.put("uri",uri);o.put("mime",mime);o.put("size",size);
 o.put("sender",senderUid);o.put("receiver",receiverUid);
+o.put("path",path==null?JSONObject.NULL:path);
 o.put("token",token==null?JSONObject.NULL:token);
 o.put("source",sourcePath==null?JSONObject.NULL:sourcePath);
-o.put("state",state);o.put("attempts",attempts);o.put("sent",sent);o.put("uploaded",uploaded);o.put("retryAt",retryAt);o.put("kind",kind);o.put("bucket",bucket);o.put("nom",nom);o.put("parts",parts);o.put("partsDone",partsDone);o.put("kind",kind);o.put("bucket",bucket);o.put("nom",nom);
+o.put("state",state);o.put("attempts",attempts);o.put("sent",sent);o.put("uploaded",uploaded);o.put("retryAt",retryAt);
+o.put("kind",kind);o.put("bucket",bucket);o.put("nom",nom);o.put("parts",parts);o.put("partsDone",partsDone);
 return o;
+}
+static VideoJob fromJson(JSONObject o){
+VideoJob j=new VideoJob();
+j.id=o.optString("id");j.uri=o.optString("uri");j.mime=o.optString("mime","video/mp4");
+j.size=o.optLong("size");j.senderUid=o.optString("sender");j.receiverUid=o.optString("receiver");
+j.path=o.isNull("path")?null:o.optString("path");
+j.token=o.isNull("token")?null:o.optString("token");
+j.sourcePath=o.isNull("source")?null:o.optString("source");
+j.state=o.optString("state","QUEUED");j.attempts=o.optInt("attempts");
+j.sent=o.optLong("sent");j.uploaded=o.optBoolean("uploaded",false);j.retryAt=o.optLong("retryAt");
+j.kind=o.optString("kind","video");j.bucket=o.optString("bucket","videos");j.nom=o.optString("nom","");
+j.parts=o.optString("parts","");j.partsDone=o.optInt("partsDone",0);
+return j;
+}
 }
 static VideoJob fromJson(JSONObject o){
 VideoJob j=new VideoJob();
