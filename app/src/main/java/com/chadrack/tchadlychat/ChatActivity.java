@@ -107,18 +107,6 @@ j.parts=o.optString("parts","");j.partsDone=o.optInt("partsDone",0);
 return j;
 }
 }
-static VideoJob fromJson(JSONObject o){
-VideoJob j=new VideoJob();
-j.id=o.optString("id");j.uri=o.optString("uri");j.mime=o.optString("mime","video/mp4");
-j.size=o.optLong("size");j.senderUid=o.optString("sender");j.receiverUid=o.optString("receiver");
-j.path=o.isNull("path")?null:o.optString("path");
-j.token=o.isNull("token")?null:o.optString("token");
-j.sourcePath=o.isNull("source")?null:o.optString("source");
-j.state=o.optString("state","QUEUED");j.attempts=o.optInt("attempts");
-j.sent=o.optLong("sent");j.uploaded=o.optBoolean("uploaded",false);j.retryAt=o.optLong("retryAt");j.kind=o.optString("kind","video");j.bucket=o.optString("bucket","videos");j.nom=o.optString("nom","");j.parts=o.optString("parts","");j.partsDone=o.optInt("partsDone",0);j.kind=o.optString("kind","video");j.bucket=o.optString("bucket","videos");j.nom=o.optString("nom","");
-return j;
-}
-}
 @Override
 protected void onCreate(Bundle savedInstanceState){
 super.onCreate(savedInstanceState);
