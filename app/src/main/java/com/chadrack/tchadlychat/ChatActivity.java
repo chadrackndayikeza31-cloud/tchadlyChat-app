@@ -82,12 +82,10 @@ String kind="video",bucket="videos",nom="";
 long size,retryAt;
 volatile long sent;
 int attempts;
-boolean uploaded;
 JSONObject toJson()throws Exception{
 JSONObject o=new JSONObject();
 o.put("id",id);o.put("uri",uri);o.put("mime",mime);o.put("size",size);
 o.put("sender",senderUid);o.put("receiver",receiverUid);
-o.put("path",path==null?JSONObject.NULL:path);
 o.put("token",token==null?JSONObject.NULL:token);
 o.put("source",sourcePath==null?JSONObject.NULL:sourcePath);
 o.put("state",state);o.put("attempts",attempts);o.put("sent",sent);o.put("uploaded",uploaded);o.put("retryAt",retryAt);o.put("kind",kind);o.put("bucket",bucket);o.put("nom",nom);o.put("parts",parts);o.put("partsDone",partsDone);o.put("kind",kind);o.put("bucket",bucket);o.put("nom",nom);
