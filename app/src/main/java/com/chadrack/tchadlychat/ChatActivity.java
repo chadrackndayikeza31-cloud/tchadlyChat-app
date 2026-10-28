@@ -1101,7 +1101,8 @@ if(c!=null&&c.moveToFirst()){int i=c.getColumnIndex(OpenableColumns.DISPLAY_NAME
 }catch(Exception ignored){}finally{if(c!=null)c.close();}
 long taille=obtenirTailleUri(uri);
 if(taille<=0){toast("Impossible de lire le fichier.");return;}
-if(taille>MAX_VIDEO_SIZE){toast("Le fichier dépasse 50 Mo.");return;}
+if(taille>1500L*1024L*1024L){toast("Le fichier dépasse 1500 Mo.");return;}
+if(getCacheDir().getUsableSpace()<taille+104857600L){toast("Espace insuffisant sur le téléphone.");return;}
 String mime=getContentResolver().getType(uri);
 if(mime==null||mime.isEmpty())mime="application/octet-stream";
 try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(Exception ignored){}
