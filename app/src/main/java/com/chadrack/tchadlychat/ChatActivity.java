@@ -1008,6 +1008,7 @@ bulle.setLayoutParams(new LinearLayout.LayoutParams(Math.min((int)(largeur*0.75f
 TextView titre=new TextView(this);
 titre.setText("Envoi de la vidéo");
 uploadTitre=titre;
+uploadTitre=titre;
 titre.setTextColor(Color.WHITE);
 titre.setTextSize(14);
 titre.setTypeface(null,Typeface.BOLD);
@@ -1046,33 +1047,6 @@ rp.setMargins(dp(8),dp(5),dp(8),dp(2));
 row.setLayoutParams(rp);
 row.addView(bulle);
 uploadBubble=row;
-}
-private void rafraichirBulleUpload(){
-if(!activityActive())return;
-VideoJob job=jobAffiche();
-if(job==null){masquerBulleUpload();return;}
-if(uploadBubble==null)creerBulleUpload();
-attacherBulleUpload();
-long total=Math.max(1L,job.size);
-long sent=Math.min(job.sent,total);
-boolean pause="PAUSED".equals(job.state);
-uploadTitre.setText("document".equals(job.kind)?"Envoi du document":"Envoi de la vidéo");
-String etat;
-if("FAILED".equals(job.state))etat="Échec de l'envoi";
-else if(pause)etat="En pause";
-else if("SAVING".equals(job.state))etat="Enregistrement du message…";
-else if("QUEUED".equals(job.state)&&job.retryAt>System.currentTimeMillis())etat="Nouvelle tentative bientôt…";
-else if("QUEUED".equals(job.state))etat="En attente…";
-else etat="document".equals(job.kind)?"Envoi du document…":"Envoi de la vidéo…";
-btnRetryUpload.setVisibility("FAILED".equals(job.state)?View.VISIBLE:View.GONE);
-btnPauseUpload.setVisibility(("FAILED".equals(job.state)||"SAVING".equals(job.state))?View.GONE:View.VISIBLE);
-btnPauseUpload.setText(pause?"▶ Reprendre":"⏸ Pause");
-int nb=nombreEnFile();
-String pourcentage=String.format(Locale.FRANCE,"%.1f%%",sent*100.0/total);
-String taille=String.format(Locale.FRANCE,"%.2f / %.2f Mo",sent/1048576.0,total/1048576.0);
-String ligneFile=nb>1?"\n"+nb+" vidéos dans la file":"";
-uploadProgressBar.setProgress((int)Math.min(1000L,sent*1000L/total));
-uploadProgressText.setText(etat+" · "+pourcentage+"\n"+taille+ligneFile);
 }
 private void mettreEnPause(){
 VideoJob job=jobAffiche();
@@ -1248,6 +1222,45 @@ public void onErreur(String msg){MAIN.post(()->toast("Téléchargement échoué.
 private void exporterDocEtAfficher(String url,String nom,String mime){
 String chemin=ExportVideo.exporter(getApplicationContext(),url,nom,mime);
 MAIN.post(()->toast(chemin==null?"Enregistrement impossible.":"Fichier enregistré : "+chemin));
+}
+private void rafraichirBulleUpload(){
+if(!activityActive())return;
+VideoJob job=jobAffiche();
+if(job==null){masquerBulleUpload();return;}
+if(uploadBubble==null)creerBulleUpload();
+attacherBulleUpload();
+long totalOctets=0,envoyesOctets=0;
+int nb=0;
+synchronized(JOBS){
+for(VideoJob j:JOBS){
+if(senderUid.equals(j.senderUid)&&receiverUid.equals(j.receiverUid)){
+nb++;
+long taille=Math.max(0L,j.size);
+totalOctets+=taille;
+long fait=("SAVING".equals(j.state)||j.uploaded)?taille:Math.min(Math.max(0L,j.sent),taille);
+envoyesOctets+=fait;
+}
+}
+}
+long total=Math.max(1L,totalOctets);
+boolean pause="PAUSED".equals(job.state);
+boolean doc="document".equals(job.kind);
+String etat;
+if("FAILED".equals(job.state))etat="Échec de l'envoi";
+else if(pause)etat="En pause";
+else if("SAVING".equals(job.state))etat="Enregistrement…";
+else if("QUEUED".equals(job.state)&&job.retryAt>System.currentTimeMillis())etat="Nouvelle tentative bientôt…";
+else if("QUEUED".equals(job.state))etat="En attente…";
+else etat=doc?"Envoi du document…":"Envoi de la vidéo…";
+if(uploadTitre!=null)uploadTitre.setText(doc?"Envoi du document":"Envoi de la vidéo");
+btnRetryUpload.setVisibility("FAILED".equals(job.state)?View.VISIBLE:View.GONE);
+btnPauseUpload.setVisibility(("FAILED".equals(job.state)||"SAVING".equals(job.state))?View.GONE:View.VISIBLE);
+btnPauseUpload.setText(pause?"▶ Reprendre":"⏸ Pause");
+String pourcentage=String.format(Locale.FRANCE,"%.1f%%",envoyesOctets*100.0/total);
+String taille=String.format(Locale.FRANCE,"%.2f / %.2f Mo",envoyesOctets/1048576.0,totalOctets/1048576.0);
+String ligneFile=nb>1?"\n"+nb+" envois dans la file":"";
+uploadProgressBar.setProgress((int)Math.min(1000L,envoyesOctets*1000L/total));
+uploadProgressText.setText(etat+" · "+pourcentage+"\n"+taille+ligneFile);
 }
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;
