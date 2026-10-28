@@ -143,6 +143,7 @@ etMessage.addTextChangedListener(new TextWatcher(){
 });
 btnEnvoyer.setOnClickListener(v->{if(isRecording){arreterEnregistrement();return;}String t=etMessage.getText().toString().trim();if(t.isEmpty())commencerEnregistrement();else envoyerMessage();});
 btnImage.setOnClickListener(v->choisirMedia());
+styliserBarreSaisie();
 chargerMessages();
 chargerJobs(getApplicationContext());
 ajouterBoutonDocument();
@@ -1262,6 +1263,47 @@ String taille=String.format(Locale.FRANCE,"%.2f / %.2f Mo",envoyesOctets/1048576
 String ligneFile=nb>1?"\n"+nb+" envois dans la file":"";
 uploadProgressBar.setProgress((int)Math.min(1000L,envoyesOctets*1000L/total));
 uploadProgressText.setText(etat+" · "+pourcentage+"\n"+taille+ligneFile);
+}
+private void styliserBarreSaisie(){
+try{
+View parentBarre=(View)etMessage.getParent();
+if(parentBarre instanceof LinearLayout){
+LinearLayout barre=(LinearLayout)parentBarre;
+barre.setPadding(dp(8),dp(8),dp(8),dp(8));
+barre.setBackgroundColor(Color.rgb(18,28,44));
+barre.setGravity(Gravity.CENTER_VERTICAL);
+}
+GradientDrawable champ=new GradientDrawable();
+champ.setShape(GradientDrawable.RECTANGLE);
+champ.setCornerRadius(dp(24));
+champ.setColor(Color.rgb(35,48,66));
+etMessage.setBackground(champ);
+etMessage.setPadding(dp(16),dp(10),dp(16),dp(10));
+etMessage.setTextColor(Color.WHITE);
+etMessage.setHintTextColor(Color.rgb(150,165,185));
+etMessage.setSingleLine(false);
+etMessage.setMaxLines(4);
+GradientDrawable boutonRond=new GradientDrawable();
+boutonRond.setShape(GradientDrawable.OVAL);
+boutonRond.setColor(Color.rgb(46,180,95));
+btnEnvoyer.setBackground(boutonRond);
+btnEnvoyer.setTextColor(Color.WHITE);
+btnEnvoyer.setTextSize(18);
+btnEnvoyer.setGravity(Gravity.CENTER);
+btnEnvoyer.setAllCaps(false);
+LinearLayout.LayoutParams pe=new LinearLayout.LayoutParams(dp(52),dp(52));
+pe.setMargins(dp(6),0,0,0);
+btnEnvoyer.setLayoutParams(pe);
+GradientDrawable sec=new GradientDrawable();
+sec.setShape(GradientDrawable.OVAL);
+sec.setColor(Color.rgb(60,70,85));
+btnImage.setBackground(sec);
+btnImage.setPadding(dp(10),dp(10),dp(10),dp(10));
+LinearLayout.LayoutParams pi=new LinearLayout.LayoutParams(dp(44),dp(44));
+pi.setMargins(0,0,dp(6),0);
+btnImage.setLayoutParams(pi);
+}
+}catch(Exception ignored){}
 }
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;
