@@ -1264,15 +1264,6 @@ String ligneFile=nb>1?"\n"+nb+" envois dans la file":"";
 uploadProgressBar.setProgress((int)Math.min(1000L,envoyesOctets*1000L/total));
 uploadProgressText.setText(etat+" · "+pourcentage+"\n"+taille+ligneFile);
 }
-private void styliserBarreSaisie(){
-try{
-View parentBarre=(View)etMessage.getParent();
-if(parentBarre instanceof LinearLayout){
-LinearLayout barre=(LinearLayout)parentBarre;
-barre.setPadding(dp(8),dp(8),dp(8),dp(8));
-barre.setBackgroundColor(Color.rgb(18,28,44));
-barre.setGravity(Gravity.CENTER_VERTICAL);
-}
 GradientDrawable champ=new GradientDrawable();
 champ.setShape(GradientDrawable.RECTANGLE);
 champ.setCornerRadius(dp(24));
@@ -1303,6 +1294,35 @@ LinearLayout.LayoutParams pi=new LinearLayout.LayoutParams(dp(44),dp(44));
 pi.setMargins(0,0,dp(6),0);
 btnImage.setLayoutParams(pi);
 }
+}catch(Exception ignored){}
+}
+private void styliserBarreSaisie(){
+try{
+View parentBarre=(View)etMessage.getParent();
+if(parentBarre instanceof LinearLayout){
+LinearLayout barre=(LinearLayout)parentBarre;
+barre.setPadding(dp(8),dp(8),dp(8),dp(8));
+barre.setBackgroundColor(Color.rgb(18,28,44));
+barre.setGravity(Gravity.CENTER_VERTICAL);
+}
+GradientDrawable champ=new GradientDrawable();
+champ.setShape(GradientDrawable.RECTANGLE);
+champ.setCornerRadius(dp(24));
+champ.setColor(Color.rgb(35,48,66));
+etMessage.setBackground(champ);
+etMessage.setPadding(dp(16),dp(10),dp(16),dp(10));
+etMessage.setTextColor(Color.WHITE);
+etMessage.setHintTextColor(Color.rgb(150,165,185));
+GradientDrawable boutonRond=new GradientDrawable();
+boutonRond.setShape(GradientDrawable.OVAL);
+boutonRond.setColor(Color.rgb(46,180,95));
+btnEnvoyer.setBackground(boutonRond);
+btnEnvoyer.setTextColor(Color.WHITE);
+btnEnvoyer.setGravity(Gravity.CENTER);
+GradientDrawable sec=new GradientDrawable();
+sec.setShape(GradientDrawable.OVAL);
+sec.setColor(Color.rgb(60,70,85));
+btnImage.setBackground(sec);
 }catch(Exception ignored){}
 }
 private void envoyerImage(Uri uri,String mime){
