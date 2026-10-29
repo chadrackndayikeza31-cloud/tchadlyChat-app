@@ -208,7 +208,7 @@ public class RegisterActivity extends Activity {
 
                     Intent intent = new Intent(
                             RegisterActivity.this,
-                            ProfileActivity.class
+                            ProfileDetailsActivity.class
                     );
 
                     intent.putExtra("pseudo", pseudo);
