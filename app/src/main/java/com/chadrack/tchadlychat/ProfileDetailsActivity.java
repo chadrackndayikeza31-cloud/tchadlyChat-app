@@ -94,7 +94,8 @@ ajouter(m,"ville",etVille);
 ajouter(m,"adresse",etAdresse);
 ajouter(m,"emploi",etEmploi);
 ajouter(m,"bio",etBio);
-if(m.isEmpty()){allerPhoto();return;}
+FirebaseUser u0=FirebaseAuth.getInstance().getCurrentUser();if(u0!=null&&u0.getEmail()!=null)m.put("email",u0.getEmail());
+&
 btnContinuer.setEnabled(false);
 btnPasser.setEnabled(false);
 firestore.collection("users").document(uid).set(m,SetOptions.merge())

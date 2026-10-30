@@ -272,7 +272,7 @@ ip.setMargins(0,0,dp(12),0);
 imageProfil.setLayoutParams(ip);
 imageProfil.setBackground(formeBulle(Color.LTGRAY,50));
 imageProfil.setClipToOutline(true);
-imageProfil.setOnClickListener(v->{if(photoReceveur==null||photoReceveur.isEmpty())toast("Pas de photo");else ouvrirPhoto(photoReceveur);});
+imageProfil.setOnClickListener(v->{ouvrirProfil();});
 imageProfil.setImageBitmap(creerAvatar(receiverPseudo));
 tvNomUtilisateur.setTextSize(18);
 tvNomUtilisateur.setTextColor(Color.YELLOW);
@@ -280,6 +280,7 @@ tvNomUtilisateur.setTypeface(null,Typeface.BOLD);
 headerChat.addView(imageProfil);
 tvNomUtilisateur.setLayoutParams(new LinearLayout.LayoutParams(0,LinearLayout.LayoutParams.WRAP_CONTENT,1f));
 headerChat.addView(tvNomUtilisateur);
+tvNomUtilisateur.setOnClickListener(v->ouvrirProfil());
 headerChat.addView(creerBoutonAppel("📞","audio"));
 headerChat.addView(creerBoutonAppel("🎥","video"));
 headerChat.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
@@ -1261,6 +1262,12 @@ String taille=String.format(Locale.FRANCE,"%.2f / %.2f Mo",envoyesOctets/1048576
 String ligneFile=nb>1?"\n"+nb+" envois dans la file":"";
 uploadProgressBar.setProgress((int)Math.min(1000L,envoyesOctets*1000L/total));
 uploadProgressText.setText(etat+" · "+pourcentage+"\n"+taille+ligneFile);
+}
+private void ouvrirProfil(){
+Intent i=new Intent(this,ProfilUtilisateurActivity.class);
+i.putExtra("uid",receiverUid);
+i.putExtra("pseudo",receiverPseudo);
+startActivity(i);
 }
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;

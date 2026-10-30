@@ -79,6 +79,7 @@
         <activity android:name=".CallActivity" android:exported="false" android:screenOrientation="portrait" android:showWhenLocked="true" android:turnScreenOn="true" />
     <provider android:name="androidx.core.content.FileProvider" android:authorities="com.chadrack.tchadlychat.fileprovider" android:exported="false" android:grantUriPermissions="true"><meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" /></provider>
     <activity android:name=".ProfileDetailsActivity" android:exported="false" android:screenOrientation="portrait" />
+    <activity android:name=".ProfilUtilisateurActivity" android:exported="false" android:screenOrientation="portrait" />
 </application>
 
 </manifest>
