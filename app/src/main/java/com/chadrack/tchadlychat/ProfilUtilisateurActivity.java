@@ -1,4 +1,6 @@
-package com.chadrack.tchadlychat;import android.app.Activity;import android.graphics.Bitmap;import android.graphics.BitmapFactory;import android.graphics.Color;import android.graphics.Outline;import android.graphics.Typeface;import android.graphics.drawable.GradientDrawable;
+package com.chadrack.tchadlychat;
+import android.content.Intent;
+import android.content.Intent;import android.app.Activity;import android.graphics.Bitmap;import android.graphics.BitmapFactory;import android.graphics.Color;import android.graphics.Outline;import android.graphics.Typeface;import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.util.Base64;
 import android.view.Gravity;
