@@ -12,6 +12,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewOutlineProvider;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -26,6 +27,7 @@ import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.Query;
+import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -48,8 +50,7 @@ db=FirebaseFirestore.getInstance();
 FrameLayout root=new FrameLayout(this);
 root.setBackgroundColor(Color.rgb(18,24,34));
 ScrollView sv=new ScrollView(this);
-liste=new LinearLayout(this);
-liste.setOrientation(LinearLayout.VERTICAL);
+liste=new LinearLayout(this);liste.setOrientation(LinearLayout.VERTICAL);
 liste.setPadding(dp(12),dp(12),dp(12),dp(70));
 sv.addView(liste);
 FrameLayout.LayoutParams lpSv=new FrameLayout.LayoutParams(-1,-1);
@@ -80,7 +81,8 @@ protected void onStart(){
 super.onStart();
 reg=db.collection("posts").orderBy("createdAt",Query.Direction.DESCENDING).limit(50).addSnapshotListener((snap,e)->{
 if(e!=null||snap==null)return;
-liste.removeAllViews();for(DocumentSnapshot d:snap.getDocuments())liste.addView(carte(d));
+liste.removeAllViews();
+for(DocumentSnapshot d:snap.getDocuments())liste.addView(carte(d));
 });
 }
 @Override
@@ -95,9 +97,12 @@ final String texte=d.getString("text");
 final String type=d.getString("mediaType");
 final String url=d.getString("mediaUrl");
 final Timestamp ts=d.getTimestamp("createdAt");
+Boolean ed=d.getBoolean("edited");
+final boolean modifie=ed!=null&&ed;
+Long nc=d.getLong("commentCount");
+final long nbCom=nc==null?0L:nc;
 Object ro=d.get("reactions");
-final Map<?,?> reacts=ro instanceof Map?(Map<?,?>)ro:new HashMap<String,Object>();
-Object mo=reacts.get(moi);
+final Map<?,?> reacts=ro instanceof Map?(Map<?,?>)ro:new HashMap<String,Object>();Object mo=reacts.get(moi);
 final String mien=mo instanceof String?(String)mo:null;
 LinearLayout c=new LinearLayout(this);
 c.setOrientation(LinearLayout.VERTICAL);
@@ -130,7 +135,8 @@ LinearLayout.LayoutParams pn=new LinearLayout.LayoutParams(0,-2,1f);
 pn.setMargins(dp(10),0,dp(8),0);
 en.addView(nom,pn);
 TextView date=new TextView(this);
-date.setText(ts==null?"":new SimpleDateFormat("dd/MM HH:mm",Locale.FRANCE).format(ts.toDate()));
+String dateTxt=ts==null?"":new SimpleDateFormat("dd/MM HH:mm",Locale.FRANCE).format(ts.toDate());
+date.setText(modifie?dateTxt+" · modifié":dateTxt);
 date.setTextColor(Color.rgb(150,165,185));
 date.setTextSize(12);
 en.addView(date);
@@ -148,8 +154,7 @@ TextView t=new TextView(this);
 t.setText(texte);
 t.setTextColor(Color.WHITE);
 t.setTextSize(16);
-t.setPadding(0,dp(10),0,dp(6));
-c.addView(t);
+t.setPadding(0,dp(10),0,dp(6));c.addView(t);
 }
 if("image".equals(type)&&url!=null&&!url.isEmpty()){
 ImageView im=new ImageView(this);
@@ -157,13 +162,15 @@ im.setScaleType(ImageView.ScaleType.CENTER_CROP);
 im.setBackgroundColor(Color.rgb(20,28,40));
 c.addView(im,new LinearLayout.LayoutParams(-1,dp(260)));
 chargerUrl(im,url);
+im.setOnClickListener(x->ouvrirPhoto(url));
 }
 if("video".equals(type)&&url!=null&&!url.isEmpty()){
 TextView v=new TextView(this);
 v.setText("▶  Vidéo · Appuyer pour lire");
 v.setGravity(Gravity.CENTER);
 v.setTextColor(Color.WHITE);
-v.setTextSize(16);v.setBackgroundColor(Color.rgb(35,35,35));
+v.setTextSize(16);
+v.setBackgroundColor(Color.rgb(35,35,35));
 v.setPadding(0,dp(60),0,dp(60));
 v.setOnClickListener(x->{
 Intent i=new Intent(this,VideoPlayerActivity.class);
@@ -174,6 +181,7 @@ c.addView(v,new LinearLayout.LayoutParams(-1,-2));
 }
 String[] em={"👍","❤️","😂"};
 LinearLayout rx=new LinearLayout(this);
+rx.setGravity(Gravity.CENTER_VERTICAL);
 rx.setPadding(0,dp(10),0,0);
 for(final String e:em){
 int n=0;
@@ -187,10 +195,17 @@ bt.setPadding(dp(10),dp(6),dp(12),dp(6));
 bt.setOnClickListener(x->reagir(id,e,actif));
 rx.addView(bt);
 }
+TextView totalRx=new TextView(this);
+int tot=reacts.size();
+totalRx.setText(tot+(tot>1?" réactions":" réaction"));
+totalRx.setTextColor(Color.rgb(150,165,185));
+totalRx.setTextSize(13);
+totalRx.setPadding(dp(8),0,0,0);
+rx.addView(totalRx);
 c.addView(rx);
 LinearLayout pied=new LinearLayout(this);
 pied.setPadding(0,dp(8),0,0);
-Button com=bouton("💬 Commentaires",Color.rgb(60,70,85));
+Button com=bouton("💬 Commentaires"+(nbCom>0?" ("+nbCom+")":""),Color.rgb(60,70,85));
 com.setOnClickListener(x->{
 Intent i=new Intent(this,CommentairesActivity.class);
 i.putExtra("postId",id);
@@ -198,18 +213,66 @@ startActivity(i);
 });
 pied.addView(com);
 if(moi.equals(auteur)){
+if(texte!=null&&!texte.isEmpty()){
+Button ed2=bouton("✏ Modifier",Color.rgb(70,110,170));
+ed2.setOnClickListener(x->modifier(id,texte));
+pied.addView(ed2);
+}
 Button sup=bouton("🗑 Supprimer",Color.rgb(120,45,50));
 sup.setOnClickListener(x->db.collection("posts").document(id).delete()
-.addOnFailureListener(e->Toast.makeText(this,"Suppression impossible.",Toast.LENGTH_SHORT).show()));
+.addOnFailureListener(e->toast("Suppression impossible.")));
 pied.addView(sup);
 }
 c.addView(pied);
 return c;
 }
+private void modifier(final String id,String ancien){
+final EditText et=new EditText(this);
+et.setText(ancien);
+et.setMinLines(3);
+et.setGravity(Gravity.TOP);
+new android.app.AlertDialog.Builder(this)
+.setTitle("Modifier la publication")
+.setView(et)
+.setPositiveButton("Enregistrer",(x,w)->{
+String t=et.getText().toString().trim();
+if(t.isEmpty()||t.length()>1000){
+toast("Texte vide ou trop long (max 1000 caractères).");
+return;
+}
+db.collection("posts").document(id).update("text",t,"edited",true,"editedAt",Timestamp.now())
+.addOnFailureListener(e->toast("Modification impossible."));
+})
+.setNegativeButton("Annuler",null)
+.show();
+}
 private void reagir(String id,String e,boolean actif){
 Object val=actif?FieldValue.delete():e;
 db.collection("posts").document(id).update("reactions."+moi,val)
-.addOnFailureListener(x->Toast.makeText(this,"Réaction impossible.",Toast.LENGTH_SHORT).show());
+.addOnFailureListener(x->toast("Réaction impossible."));
+}
+private void ouvrirPhoto(final String url){
+new Thread(()->{
+try{
+HttpURLConnection c=(HttpURLConnection)new URL(url).openConnection();
+c.setConnectTimeout(15000);
+c.setReadTimeout(30000);
+ByteArrayOutputStream o=new ByteArrayOutputStream();
+try(InputStream in=c.getInputStream()){
+byte[] buf=new byte[65536];
+int n;
+while((n=in.read(buf))!=-1)o.write(buf,0,n);
+}
+final String b64=Base64.encodeToString(o.toByteArray(),Base64.NO_WRAP);
+runOnUiThread(()->{
+Intent i=new Intent(this,PhotoViewerActivity.class);
+i.putExtra("imageBase64",b64);
+startActivity(i);
+});
+}catch(Exception e){
+toast("Photo indisponible.");
+}
+}).start();
 }
 private void chargerUrl(final ImageView im,final String url){
 new Thread(()->{
@@ -225,6 +288,9 @@ if(bm!=null)runOnUiThread(()->im.setImageBitmap(bm));
 }
 }catch(Exception ignored){}
 }).start();
+}
+private void toast(final String s){
+runOnUiThread(()->Toast.makeText(this,s,Toast.LENGTH_SHORT).show());
 }
 private Bitmap decoder(String photo){
 if(photo==null||photo.isEmpty())return null;

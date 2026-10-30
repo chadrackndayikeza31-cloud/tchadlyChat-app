@@ -11,6 +11,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 import com.google.firebase.Timestamp;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
@@ -145,6 +146,7 @@ date.setTextSize(11);
 c.addView(date);
 if(moi.equals(auteur)){
 c.setOnLongClickListener(v->{
+db.collection("posts").document(postId).update("commentCount",FieldValue.increment(-1));
 db.collection("comments").document(d.getId()).delete();
 Toast.makeText(this,"Commentaire supprimé.",Toast.LENGTH_SHORT).show();
 return true;
@@ -164,6 +166,7 @@ m.put("postId",postId);
 m.put("author",moi);
 m.put("text",t);
 m.put("createdAt",Timestamp.now());
+db.collection("posts").document(postId).update("commentCount",FieldValue.increment(1));
 db.collection("comments").add(m)
 .addOnSuccessListener(r->etMsg.setText(""))
 .addOnFailureListener(e->Toast.makeText(this,"Envoi impossible.",Toast.LENGTH_SHORT).show());
