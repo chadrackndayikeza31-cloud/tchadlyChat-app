@@ -377,7 +377,7 @@ return;
 }
 Map<String,Object> m=new HashMap<>();
 m.put("sender",senderUid);m.put("receiver",receiverUid);m.put("text",texte);m.put("type","text");m.put("timestamp",Timestamp.now());m.put("delivered",false);m.put("seen",false);m.put("deleted",false);
-firestore.collection("private_messages").add(m).addOnSuccessListener(ref->{if(activityActive())etMessage.setText("");envoyerNotification(ref.getId());}).addOnFailureListener(e->toast("Envoi échoué. Vérifiez la connexion."));
+firestore.collection("private_messages").add(m).addOnSuccessListener(ref->{if(activityActive())etMessage.setText("");envoyerNotification(ref.getId());}).addOnFailureListener(e->toast("Envoi impossible (connexion ou utilisateur bloqué)."));
 }
 private void envoyerNotification(String messageId){
 if(messageId==null||messageId.trim().isEmpty())return;
