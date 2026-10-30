@@ -67,6 +67,7 @@ img.setOutlineProvider(new ViewOutlineProvider(){
 public void getOutline(View view,Outline outline){outline.setOval(0,0,view.getWidth(),view.getHeight());}
 });
 img.setClipToOutline(true);
+img.setOnClickListener(v->ouvrirPhotoPleine(photo));
 cadre.addView(img,new FrameLayout.LayoutParams(-1,-1));
 }else{
 GradientDrawable rond=new GradientDrawable();
@@ -103,6 +104,12 @@ v.setTextSize(16);
 carte.addView(l);
 carte.addView(v);
 root.addView(carte,lp(-1,-2,0,0,0,10));
+}
+private void ouvrirPhotoPleine(String encoded){
+if(encoded==null||encoded.isEmpty())return;
+Intent i=new Intent(this,PhotoViewerActivity.class);
+i.putExtra("imageBase64",encoded);
+startActivity(i);
 }
 private Bitmap decoder(String photo){
 if(photo==null||photo.isEmpty())return null;
