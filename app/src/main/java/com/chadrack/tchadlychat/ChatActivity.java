@@ -138,12 +138,13 @@ if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIF
 mettreBoutonEnvoyer();
 etMessage.addTextChangedListener(new TextWatcher(){
 @Override public void beforeTextChanged(CharSequence s,int start,int count,int after){}
-@Override public void onTextChanged(CharSequence s,int start,int before,int count){if(!isRecording)mettreBoutonEnvoyer();}
+@Override public void onTextChanged(CharSequence s,int start,int before,int count){if(!isRecording)mettreBoutonEnvoyer();signalerSaisie();}
 @Override public void afterTextChanged(Editable s){}
 });
 btnEnvoyer.setOnClickListener(v->{if(isRecording){arreterEnregistrement();return;}String t=etMessage.getText().toString().trim();if(t.isEmpty())commencerEnregistrement();else envoyerMessage();});
 btnImage.setOnClickListener(v->choisirMedia());
 chargerMessages();
+ecouterSaisie();
 chargerJobs(getApplicationContext());
 ajouterBoutonDocument();
 traiterFile(getApplicationContext());
@@ -283,6 +284,7 @@ headerChat.addView(tvNomUtilisateur);
 tvNomUtilisateur.setOnClickListener(v->ouvrirProfil());
 headerChat.addView(creerBoutonAppel("📞","audio"));
 headerChat.addView(creerBoutonAppel("🎥","video"));
+headerChat.addView(creerBoutonRecherche());
 headerChat.setLayoutParams(new LinearLayout.LayoutParams(-1,-2));
 if(index>=0&&index<=parent.getChildCount())parent.addView(headerChat,index);else parent.addView(headerChat,0);
 }
@@ -376,7 +378,7 @@ firestore.collection("private_messages").document(id).update("text",texte,"edite
 return;
 }
 Map<String,Object> m=new HashMap<>();
-m.put("sender",senderUid);m.put("receiver",receiverUid);m.put("text",texte);m.put("type","text");m.put("timestamp",Timestamp.now());m.put("delivered",false);m.put("seen",false);m.put("deleted",false);
+m.put("sender",senderUid);m.put("receiver",receiverUid);m.put("text",texte);ajouterReponse(m);m.put("type","text");m.put("timestamp",Timestamp.now());m.put("delivered",false);m.put("seen",false);m.put("deleted",false);
 firestore.collection("private_messages").add(m).addOnSuccessListener(ref->{if(activityActive())etMessage.setText("");envoyerNotification(ref.getId());}).addOnFailureListener(e->toast("Envoi impossible (connexion ou utilisateur bloqué)."));
 }
 private void envoyerNotification(String messageId){
@@ -1269,6 +1271,151 @@ i.putExtra("uid",receiverUid);
 i.putExtra("pseudo",receiverPseudo);
 startActivity(i);
 }
+private long derniereSaisieEnvoyee=0;
+private ListenerRegistration saisieListener;
+private String replyPreview,filtreRecherche;
+private LinearLayout reponseBar;
+private TextView tvReponse;
+private final Runnable effacerSaisie=()->afficherSaisie(false);
+private void signalerSaisie(){
+if(firestore==null||senderUid==null||receiverUid==null)return;
+long now=System.currentTimeMillis();
+if(now-derniereSaisieEnvoyee<2000L)return;
+derniereSaisieEnvoyee=now;
+Map<String,Object> m=new HashMap<>();
+m.put("at",now);
+firestore.collection("typing").document(senderUid+"_"+receiverUid).set(m);
+}
+private void ecouterSaisie(){
+if(firestore==null||senderUid==null||receiverUid==null)return;
+saisieListener=firestore.collection("typing").document(receiverUid+"_"+senderUid).addSnapshotListener((d,e)->{
+if(d==null||!d.exists())return;
+Object o=d.get("at");
+if(o instanceof Number&&System.currentTimeMillis()-((Number)o).longValue()<5000L){
+afficherSaisie(true);
+MAIN.removeCallbacks(effacerSaisie);
+MAIN.postDelayed(effacerSaisie,3000L);
+}
+});
+}
+private void afficherSaisie(boolean enCours){
+if(tvNomUtilisateur==null||receiverPseudo==null)return;
+tvNomUtilisateur.setText(enCours?receiverPseudo+" · en train d'écrire…":receiverPseudo);
+}
+private void choisirReaction(DocumentSnapshot d){
+String[] em={"👍","❤️","😂","😮","😢"};
+new android.app.AlertDialog.Builder(this).setTitle("Réagir").setItems(em,(x,w)->reagir(d.getId(),em[w])).show();
+}
+private void reagir(String msgId,String emoji){
+if(firestore==null||senderUid==null)return;
+firestore.collection("private_messages").document(msgId).update("reactions."+senderUid,emoji)
+.addOnFailureListener(e->toast("Réaction impossible."));
+}
+private void ajouterReactions(LinearLayout bubble,DocumentSnapshot d){
+Object o=d.get("reactions");
+if(!(o instanceof Map))return;
+Map<?,?> r=(Map<?,?>)o;
+if(r.isEmpty())return;
+StringBuilder sb=new StringBuilder();
+for(Object v:r.values())sb.append(v).append(" ");
+TextView t=new TextView(this);
+t.setText(sb.toString().trim());
+t.setTextSize(16);
+t.setPadding(0,dp(4),0,0);
+bubble.addView(t);
+}
+private void preparerReponse(DocumentSnapshot d){
+String type=safeString(d,"type");
+String apercu;
+if("image".equals(type))apercu="📷 Photo";
+else if("video".equals(type))apercu="🎥 Vidéo";
+else if("audio".equals(type))apercu="🎤 Message vocal";
+else if("document".equals(type))apercu="📄 "+(safeString(d,"nom")==null?"Document":safeString(d,"nom"));
+else{String t=safeString(d,"text");apercu=t==null?"":t;}
+if(apercu.length()>60)apercu=apercu.substring(0,60)+"…";
+replyPreview=apercu;
+afficherBarreReponse();
+}
+private void afficherBarreReponse(){
+if(replyPreview==null){if(reponseBar!=null)reponseBar.setVisibility(View.GONE);return;}
+if(reponseBar==null){
+reponseBar=new LinearLayout(this);
+reponseBar.setOrientation(LinearLayout.HORIZONTAL);
+reponseBar.setGravity(Gravity.CENTER_VERTICAL);
+reponseBar.setBackgroundColor(Color.rgb(30,40,58));
+reponseBar.setPadding(dp(12),dp(8),dp(8),dp(8));
+tvReponse=new TextView(this);
+tvReponse.setTextColor(Color.rgb(190,205,225));
+tvReponse.setTextSize(14);
+reponseBar.addView(tvReponse,new LinearLayout.LayoutParams(0,-2,1f));
+TextView x=new TextView(this);
+x.setText("✕");
+x.setTextColor(Color.WHITE);
+x.setTextSize(18);
+x.setPadding(dp(12),0,dp(8),0);
+x.setOnClickListener(v->{replyPreview=null;afficherBarreReponse();});
+reponseBar.addView(x);
+View barreSaisie=(View)btnEnvoyer.getParent();
+ViewGroup parent=(ViewGroup)barreSaisie.getParent();
+parent.addView(reponseBar,parent.indexOfChild(barreSaisie));
+}
+tvReponse.setText("↩ "+replyPreview);
+reponseBar.setVisibility(View.VISIBLE);
+}
+private void ajouterReponse(Map<String,Object> m){
+if(replyPreview==null)return;
+m.put("replyPreview",replyPreview);
+replyPreview=null;
+afficherBarreReponse();
+}
+private void ajouterCitation(LinearLayout bubble,DocumentSnapshot d){
+String c=safeString(d,"replyPreview");
+if(c==null||c.isEmpty())return;
+TextView t=new TextView(this);
+t.setText("↩ "+c);
+t.setTextColor(Color.rgb(220,235,225));
+t.setTextSize(13);
+t.setPadding(dp(8),dp(4),dp(8),dp(4));
+t.setBackgroundColor(Color.argb(70,0,0,0));
+bubble.addView(t,0);
+}
+private TextView creerBoutonRecherche(){
+TextView b=new TextView(this);
+b.setText("🔍");
+b.setTextSize(20);
+b.setGravity(Gravity.CENTER);
+GradientDrawable rond=new GradientDrawable();
+rond.setShape(GradientDrawable.OVAL);
+rond.setColor(Color.rgb(60,70,85));
+b.setBackground(rond);
+LinearLayout.LayoutParams p=new LinearLayout.LayoutParams(dp(44),dp(44));
+p.setMargins(dp(6),0,0,0);
+b.setLayoutParams(p);
+b.setOnClickListener(v->ouvrirRecherche());
+return b;
+}
+private void ouvrirRecherche(){
+EditText champRecherche=new EditText(this);
+champRecherche.setHint("Mot ou phrase à chercher");
+champRecherche.setText(filtreRecherche==null?"":filtreRecherche);
+new android.app.AlertDialog.Builder(this).setTitle("Rechercher dans la discussion")
+.setView(champRecherche)
+.setPositiveButton("Chercher",(x,w)->{
+String f=champRecherche.getText().toString().trim().toLowerCase(Locale.getDefault());
+filtreRecherche=f.isEmpty()?null:f;
+afficherMessagesCombines();
+})
+.setNeutralButton("Tout afficher",(x,w)->{filtreRecherche=null;afficherMessagesCombines();})
+.setNegativeButton("Annuler",null)
+.show();
+}
+private boolean correspondRecherche(DocumentSnapshot d){
+String t=safeString(d,"text");
+String c=safeString(d,"replyPreview");
+String nom=safeString(d,"nom");
+String tout=((t==null?"":t)+" "+(c==null?"":c)+" "+(nom==null?"":nom)).toLowerCase(Locale.getDefault());
+return tout.contains(filtreRecherche);
+}
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;
 final String cible=receiverUid;
@@ -1346,12 +1493,14 @@ String text=safeString(d,"text");
 boolean mine=sender!=null&&sender.equals(senderUid);
 long timestamp=safeTimestamp(d,"timestamp");
 if(safeBoolean(d,"deleted")){afficherMessageSupprime(mine,timestamp);return;}
+if(filtreRecherche!=null&&!correspondRecherche(d))return;
 if("video".equals(type)){
 String checkLink=safeString(d,"videoUrl");
 if(checkLink==null||checkLink.trim().isEmpty())return;
 }
 LinearLayout layout=creerMessageLayout(mine);
 LinearLayout bubble=creerBubble(mine);
+ajouterCitation(bubble,d);
 if("image".equals(type)){
 String encoded=safeString(d,"imageBase64");
 if(encoded!=null&&!encoded.isEmpty()){
@@ -1405,6 +1554,7 @@ content.setTextColor(Color.WHITE);
 content.setTextSize(16);
 bubble.addView(content);
 }
+ajouterReactions(bubble,d);
 ajouterInfos(bubble,mine,timestamp,safeBoolean(d,"delivered"),safeBoolean(d,"seen"),safeBoolean(d,"edited"));
 layout.addView(bubble);
 layoutMessages.addView(layout);
@@ -1416,12 +1566,16 @@ boolean texte="text".equals(safeString(d,"type"));
 List<String> actions=new ArrayList<>();
 if(texte)actions.add("Copier");
 if(mine&&texte)actions.add("Modifier");
+actions.add("Réagir");
+actions.add("Répondre");
 actions.add("Transférer");
 actions.add("Supprimer");
 new AlertDialog.Builder(this).setItems(actions.toArray(new String[0]),(dialog,which)->{
 String action=actions.get(which);
 if("Copier".equals(action))copierMessage(d);
 else if("Modifier".equals(action))preparerModification(d);
+else if("Réagir".equals(action))choisirReaction(d);
+else if("Répondre".equals(action))preparerReponse(d);
 else if("Transférer".equals(action))transfererMessage(d);
 else if(mine)choisirSuppression(d);
 else supprimerPourTous(d);
@@ -1629,6 +1783,7 @@ WeakReference<ChatActivity> r=ui;
 if(r!=null&&r.get()==this)ui=null;
 try{notificationExecutor.shutdown();}catch(Exception ignored){}
 try{mediaExecutor.shutdown();}catch(Exception ignored){}
+if(saisieListener!=null)saisieListener.remove();
 super.onDestroy();
 }
 }
