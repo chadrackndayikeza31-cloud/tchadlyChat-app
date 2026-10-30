@@ -169,35 +169,6 @@ if(currentUid!=null)Presence.arreter(currentUid);
         chargerUtilisateurs();
     }*/
 
-    private void creerBoutonDeconnexion(){
-        if(btnDeconnecter!=null)return;
-
-        FrameLayout root=findViewById(android.R.id.content);
-        if(root==null)return;
-
-        btnDeconnecter=new Button(this);
-        btnDeconnecter.setText("Déconnecter");
-        btnDeconnecter.setTextColor(Color.WHITE);
-        btnDeconnecter.setTextSize(14);
-        btnDeconnecter.setAllCaps(false);
-        btnDeconnecter.setGravity(Gravity.CENTER);
-
-        GradientDrawable background=new GradientDrawable();
-        background.setColor(Color.rgb(190,45,55));
-        background.setCornerRadius(dp(20));
-        btnDeconnecter.setBackground(background);
-
-        FrameLayout.LayoutParams params=new FrameLayout.LayoutParams(
-                dp(135),
-                dp(48)
-        );
-        params.gravity=Gravity.TOP|Gravity.END;
-        params.setMargins(0,dp(8),dp(12),0);
-        btnDeconnecter.setLayoutParams(params);
-
-        btnDeconnecter.setOnClickListener(v->deconnecterUtilisateur());
-        root.addView(btnDeconnecter);
-    }
     private ListenerRegistration appelsListener;
 private final Set<String> appelsAffiches=new HashSet<>();
 private final Handler appelHandler=new Handler(android.os.Looper.getMainLooper());
@@ -211,6 +182,46 @@ rafraichissement.postDelayed(this,30000L);
 };
 
 
+private void creerBoutonDeconnexion(){
+if(btnDeconnecter!=null)return;
+FrameLayout root=findViewById(android.R.id.content);
+if(root==null)return;
+btnDeconnecter=new Button(this);
+btnDeconnecter.setText("⋮");
+btnDeconnecter.setTextColor(Color.WHITE);
+btnDeconnecter.setTextSize(22);
+btnDeconnecter.setAllCaps(false);
+btnDeconnecter.setPadding(0,0,0,0);
+GradientDrawable fond=new GradientDrawable();
+fond.setShape(GradientDrawable.OVAL);
+fond.setColor(Color.rgb(55,70,95));
+btnDeconnecter.setBackground(fond);
+FrameLayout.LayoutParams params=new FrameLayout.LayoutParams(dp(48),dp(48));
+params.gravity=Gravity.TOP|Gravity.END;
+params.setMargins(0,dp(8),dp(12),0);
+btnDeconnecter.setLayoutParams(params);
+btnDeconnecter.setOnClickListener(v->afficherMenuPrincipal());
+root.addView(btnDeconnecter);
+}
+private void afficherMenuPrincipal(){
+new android.app.AlertDialog.Builder(this)
+.setItems(new String[]{"Mon profil","Paramètres","Déconnecter"},(d,w)->{
+if(w==0)ouvrirMonProfil();
+else if(w==1)ouvrirParametres();
+else deconnecterUtilisateur();
+})
+.show();
+}
+private void ouvrirMonProfil(){
+if(currentUid==null)return;
+Intent i=new Intent(this,ProfilUtilisateurActivity.class);
+i.putExtra("uid",currentUid);
+i.putExtra("pseudo","");
+startActivity(i);
+}
+private void ouvrirParametres(){
+startActivity(new Intent(this,ParametresActivity.class));
+}
     private void deconnecterUtilisateur(){
         if(firebaseAuth==null){
             firebaseAuth=FirebaseAuth.getInstance();
