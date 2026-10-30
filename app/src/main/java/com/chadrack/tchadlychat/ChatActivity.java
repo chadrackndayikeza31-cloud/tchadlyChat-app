@@ -143,6 +143,7 @@ etMessage.addTextChangedListener(new TextWatcher(){
 });
 btnEnvoyer.setOnClickListener(v->{if(isRecording){arreterEnregistrement();return;}String t=etMessage.getText().toString().trim();if(t.isEmpty())commencerEnregistrement();else envoyerMessage();});
 btnImage.setOnClickListener(v->choisirMedia());
+styliserBarreSaisie();
 chargerMessages();
 ecouterSaisie();
 chargerJobs(getApplicationContext());
@@ -1415,6 +1416,43 @@ String c=safeString(d,"replyPreview");
 String nom=safeString(d,"nom");
 String tout=((t==null?"":t)+" "+(c==null?"":c)+" "+(nom==null?"":nom)).toLowerCase(Locale.getDefault());
 return tout.contains(filtreRecherche);
+}
+private void styliserBarreSaisie(){
+try{
+ViewGroup barre=(ViewGroup)etMessage.getParent();
+barre.setBackgroundColor(Color.rgb(8,22,40));
+barre.setPadding(dp(10),dp(8),dp(10),dp(8));
+GradientDrawable champ=new GradientDrawable();
+champ.setCornerRadius(dp(24));
+champ.setColor(Color.rgb(18,45,80));
+champ.setStroke(dp(1),Color.rgb(40,85,130));
+etMessage.setBackground(champ);
+etMessage.setPadding(dp(16),dp(10),dp(16),dp(10));
+etMessage.setTextColor(Color.WHITE);
+etMessage.setHintTextColor(Color.rgb(120,150,185));
+GradientDrawable grad=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{Color.rgb(30,144,255),Color.rgb(138,43,226)});
+grad.setCornerRadius(dp(14));
+btnImage.setBackground(grad);
+btnImage.setLayoutParams(new LinearLayout.LayoutParams(dp(46),dp(46)));
+GradientDrawable mic=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{Color.rgb(0,170,255),Color.rgb(0,90,230)});
+mic.setShape(GradientDrawable.OVAL);
+btnEnvoyer.setBackground(mic);
+btnEnvoyer.setTextColor(Color.WHITE);
+btnEnvoyer.setLayoutParams(new LinearLayout.LayoutParams(dp(50),dp(50)));
+GradientDrawable pc=new GradientDrawable();
+pc.setShape(GradientDrawable.OVAL);
+pc.setColor(Color.rgb(25,40,62));
+for(int i=0;i<barre.getChildCount();i++){
+View v=barre.getChildAt(i);
+if(v instanceof TextView&&"📎".contentEquals(((TextView)v).getText())){
+v.setBackground(pc);
+v.setLayoutParams(new LinearLayout.LayoutParams(dp(46),dp(46)));
+}
+}
+View sep=new View(this);
+sep.setBackgroundColor(Color.rgb(40,70,100));
+barre.addView(sep,barre.indexOfChild(etMessage),new LinearLayout.LayoutParams(dp(1),dp(28)));
+}catch(Exception ignored){}
 }
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;
