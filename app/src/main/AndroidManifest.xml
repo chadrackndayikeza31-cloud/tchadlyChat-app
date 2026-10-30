@@ -81,6 +81,9 @@
     <activity android:name=".ProfileDetailsActivity" android:exported="false" android:screenOrientation="portrait" />
     <activity android:name=".ProfilUtilisateurActivity" android:exported="false" android:screenOrientation="portrait" />
     <activity android:name=".ParametresActivity" android:exported="false" android:screenOrientation="portrait" />
+    <activity android:name=".PostsActivity" android:exported="false" android:screenOrientation="portrait" />
+    <activity android:name=".PublierActivity" android:exported="false" android:screenOrientation="portrait" />
+    <activity android:name=".CommentairesActivity" android:exported="false" android:screenOrientation="portrait" />
 </application>
 
 </manifest>
