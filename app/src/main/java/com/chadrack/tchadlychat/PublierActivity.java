@@ -4,11 +4,15 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.media.MediaMetadataRetriever;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -38,7 +42,10 @@ private static final String SERVEUR="https://tchadlychat-server.onrender.com/cre
 private static final String SUPABASE="https://ecdzacaaayomyqvtwpyo.supabase.co";
 private EditText etTexte;
 private TextView tvEtat;
-private Button btnPublier;
+private Button btnPublier,btnSecondaire,bImg,bVid;
+private FrameLayout framePreview;
+private ImageView ivPreview;
+private LinearLayout rowMedia;
 private Uri mediaUri;
 private String mediaType="none";
 private String moi;
@@ -60,32 +67,53 @@ titre.setTextSize(22);
 titre.setTypeface(null,Typeface.BOLD);
 root.addView(titre,lp(-1,-2,0,0,0,16));
 etTexte=new EditText(this);
-etTexte.setHint("Quoi de neuf ?");
+etTexte.setHint("Écris une légende ou un texte…");
 etTexte.setHintTextColor(Color.GRAY);
 etTexte.setTextColor(Color.WHITE);
-etTexte.setMinLines(4);
+etTexte.setMinLines(3);
 etTexte.setGravity(Gravity.TOP);
 etTexte.setBackgroundColor(Color.rgb(60,60,60));
 etTexte.setPadding(dp(14),dp(12),dp(14),dp(12));
 root.addView(etTexte,lp(-1,-2,0,0,0,12));
-Button bImg=bouton("📷 Ajouter une photo",Color.rgb(70,110,170));
+framePreview=new FrameLayout(this);
+framePreview.setBackgroundColor(Color.rgb(0,0,0));
+ivPreview=new ImageView(this);
+ivPreview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+framePreview.addView(ivPreview,new FrameLayout.LayoutParams(-1,-1));
+framePreview.setVisibility(View.GONE);
+root.addView(framePreview,lp(-1,dp(300),0,0,0,12));
+rowMedia=new LinearLayout(this);
+rowMedia.setOrientation(LinearLayout.HORIZONTAL);
+bImg=bouton("📷 Photo",Color.rgb(70,110,170));
 bImg.setOnClickListener(x->choisir("image/*",PICK_IMG));
-root.addView(bImg,lp(-1,dp(48),0,0,0,8));
-Button bVid=bouton("🎥 Ajouter une vidéo (max 50 Mo)",Color.rgb(70,110,170));
+bVid=bouton("🎥 Vidéo (max 50 Mo)",Color.rgb(70,110,170));
 bVid.setOnClickListener(x->choisir("video/*",PICK_VID));
-root.addView(bVid,lp(-1,dp(48),0,0,0,16));
+rowMedia.addView(bImg,new LinearLayout.LayoutParams(0,dp(48),1f));
+LinearLayout.LayoutParams pv=new LinearLayout.LayoutParams(0,dp(48),1f);
+pv.setMargins(dp(8),0,0,0);
+rowMedia.addView(bVid,pv);
+root.addView(rowMedia,lp(-1,-2,0,0,0,16));
 tvEtat=new TextView(this);
 tvEtat.setTextColor(Color.rgb(190,205,225));
 tvEtat.setTextSize(14);
 root.addView(tvEtat,lp(-1,-2,0,0,0,12));
+LinearLayout actions=new LinearLayout(this);
+actions.setOrientation(LinearLayout.HORIZONTAL);
 btnPublier=bouton("Publier",Color.rgb(46,180,95));
 btnPublier.setOnClickListener(x->publier());
-root.addView(btnPublier,lp(-1,dp(50),0,0,0,8));
-Button annuler=bouton("Annuler",Color.rgb(90,90,90));
-annuler.setOnClickListener(x->finish());
-root.addView(annuler,lp(-1,dp(50),0,0,0,0));
+actions.addView(btnPublier,new LinearLayout.LayoutParams(0,dp(50),1f));
+btnSecondaire=bouton("Annuler",Color.rgb(90,90,90));
+btnSecondaire.setOnClickListener(x->{
+if(mediaUri==null)finish();
+else retirerMedia();
+});
+LinearLayout.LayoutParams ps=new LinearLayout.LayoutParams(0,dp(50),1f);
+ps.setMargins(dp(8),0,0,0);
+actions.addView(btnSecondaire,ps);
+root.addView(actions,lp(-1,-2,0,0,0,0));
 sv.addView(root);
 setContentView(sv);
+majInterface();
 }
 private void choisir(String type,int code){
 Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);
@@ -99,7 +127,41 @@ super.onActivityResult(req,res,data);
 if(res!=RESULT_OK||data==null||data.getData()==null)return;
 mediaUri=data.getData();
 mediaType=req==PICK_IMG?"image":"video";
-tvEtat.setText("Média sélectionné : "+(req==PICK_IMG?"photo":"vidéo"));
+afficherApercu();
+majInterface();
+}
+private void afficherApercu(){
+try{
+if("image".equals(mediaType)){
+BitmapFactory.Options o=new BitmapFactory.Options();
+o.inSampleSize=4;
+InputStream in=getContentResolver().openInputStream(mediaUri);
+Bitmap bm=BitmapFactory.decodeStream(in,null,o);
+if(in!=null)in.close();
+ivPreview.setImageBitmap(bm);
+}else{
+MediaMetadataRetriever mmr=new MediaMetadataRetriever();
+mmr.setDataSource(this,mediaUri);
+Bitmap fr=mmr.getFrameAtTime();
+mmr.release();
+ivPreview.setImageBitmap(fr);
+}
+}catch(Exception e){
+ivPreview.setImageDrawable(null);
+}
+}
+private void retirerMedia(){
+mediaUri=null;
+mediaType="none";
+ivPreview.setImageDrawable(null);
+tvEtat.setText("");
+majInterface();
+}
+private void majInterface(){
+boolean avecMedia=mediaUri!=null;
+framePreview.setVisibility(avecMedia?View.VISIBLE:View.GONE);
+rowMedia.setVisibility(avecMedia?View.GONE:View.VISIBLE);
+btnSecondaire.setText(avecMedia?"Supprimer":"Annuler");
 }
 private void publier(){
 final String texte=etTexte.getText().toString().trim();
@@ -165,9 +227,7 @@ byte[] b=new byte[65536];
 int n;
 while((n=in.read(b))!=-1){
 taille+=n;
-if(taille>MAX_VID){
-throw new Exception("Vidéo trop grande (max 50 Mo)");
-}
+if(taille>MAX_VID)throw new Exception("Vidéo trop grande (max 50 Mo)");
 out.write(b,0,n);
 }
 }
@@ -219,9 +279,9 @@ int n;
 while((n=in.read(bb))!=-1)out.write(bb,0,n);
 }
 int pc=p.getResponseCode();
-lire(pc>=200&&pc<300?p.getInputStream():p.getErrorStream());
+String rep=lire(pc>=200&&pc<300?p.getInputStream():p.getErrorStream());
 p.disconnect();
-if(pc<200||pc>=300)throw new Exception("Envoi du média HTTP "+pc);
+if(pc<200||pc>=300)throw new Exception("Envoi du média HTTP "+pc+" "+rep);
 return SUPABASE+"/storage/v1/object/public/posts/"+path;
 }
 private String lire(InputStream in)throws Exception{
