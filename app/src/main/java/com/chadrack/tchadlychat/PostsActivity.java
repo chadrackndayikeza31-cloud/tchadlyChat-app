@@ -165,19 +165,11 @@ chargerUrl(im,url);
 im.setOnClickListener(x->ouvrirPhoto(url));
 }
 if("video".equals(type)&&url!=null&&!url.isEmpty()){
-TextView v=new TextView(this);
-v.setText("▶  Vidéo · Appuyer pour lire");
-v.setGravity(Gravity.CENTER);
-v.setTextColor(Color.WHITE);
-v.setTextSize(16);
-v.setBackgroundColor(Color.rgb(35,35,35));
-v.setPadding(0,dp(60),0,dp(60));
-v.setOnClickListener(x->{
+c.addView(VideoThumb.creer(this,url,52,x->{
 Intent i=new Intent(this,VideoPlayerActivity.class);
 i.putExtra("videoUrl",url);
 startActivity(i);
-});
-c.addView(v,new LinearLayout.LayoutParams(-1,-2));
+}));
 }
 String[] em={"👍","❤️","😂"};
 LinearLayout rx=new LinearLayout(this);
