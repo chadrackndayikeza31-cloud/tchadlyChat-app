@@ -41,6 +41,8 @@ private LinearLayout liste;
 private FirebaseFirestore db;
 private ListenerRegistration reg;
 private boolean populaires=false;
+private final android.os.Handler h=new android.os.Handler(android.os.Looper.getMainLooper());
+private final Runnable maj=new Runnable(){public void run(){afficher();h.postDelayed(this,60000L);}};
 private TextView tabRecentes,tabPopulaires;
 private final List<DocumentSnapshot> docs=new ArrayList<>();
 @Override
@@ -120,6 +122,7 @@ return ro instanceof Map?((Map<?,?>)ro).size():0;
 @Override
 protected void onStart(){
 super.onStart();
+h.postDelayed(maj,60000L);
 reg=db.collection("posts").orderBy("createdAt",Query.Direction.DESCENDING).limit(50).addSnapshotListener((snap,e)->{
 if(e!=null||snap==null)return;
 docs.clear();
@@ -130,6 +133,7 @@ afficher();
 @Override
 protected void onStop(){
 if(reg!=null){reg.remove();reg=null;}
+h.removeCallbacks(maj);
 super.onStop();
 }
 private View carte(DocumentSnapshot d){
@@ -188,7 +192,7 @@ nom.setTextSize(16);
 nom.setTypeface(null,Typeface.BOLD);
 info.addView(nom);
 TextView date=new TextView(this);
-String dateTxt=ts==null?"":new SimpleDateFormat("dd/MM HH:mm",Locale.FRANCE).format(ts.toDate());
+String dateTxt=ts==null?"":ilYA(ts.toDate().getTime());
 date.setText(modifie?dateTxt+" · modifié":dateTxt);
 date.setTextColor(Color.rgb(150,165,185));
 date.setTextSize(12);
@@ -421,6 +425,18 @@ if(bm!=null)runOnUiThread(()->im.setImageBitmap(bm));
 }
 }catch(Exception ignored){}
 }).start();
+}
+private String ilYA(long ms){
+long s=(System.currentTimeMillis()-ms)/1000L;
+if(s<60)return "maintenant";
+long min=s/60L;
+if(min<60)return min+"min";
+long h=min/60L;
+if(h<24)return h+"h";
+long j=h/24L;
+if(j<7)return j+"j";
+if(j<364)return (j/7L)+"semaine";
+return Math.max(1L,j/365L)+"an";
 }
 private void toast(final String s){
 runOnUiThread(()->Toast.makeText(this,s,Toast.LENGTH_SHORT).show());
