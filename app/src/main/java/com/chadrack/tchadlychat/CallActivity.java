@@ -189,6 +189,7 @@ engine.setEnableSpeakerphone(speaker);
 if(isVideo){
 engine.enableVideo();
 SurfaceView local=new SurfaceView(this);
+local.setZOrderMediaOverlay(true);
 localContainer.removeAllViews();
 localContainer.addView(local);
 engine.setupLocalVideo(new VideoCanvas(local,Constants.RENDER_MODE_HIDDEN,0));
