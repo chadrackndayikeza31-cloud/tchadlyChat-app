@@ -16,7 +16,8 @@ final float d=a.getResources().getDisplayMetrics().density;
 final int largeur=a.getResources().getDisplayMetrics().widthPixels-(int)(margeDp*d);
 final FrameLayout cadre=new FrameLayout(a);
 cadre.setBackgroundColor(Color.rgb(20,24,32));
-cadre.setLayoutParams(new android.view.ViewGroup.LayoutParams(largeur,(int)(largeur*9f/16f)));
+cadre.setMinimumWidth(largeur);
+cadre.setMinimumHeight((int)(largeur*9f/16f));
 final ImageView im=new ImageView(a);
 im.setScaleType(ImageView.ScaleType.FIT_CENTER);
 cadre.addView(im,new FrameLayout.LayoutParams(-1,-1));
@@ -45,8 +46,9 @@ final Bitmap fr=r.getFrameAtTime(0,MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
 r.release();
 final int hauteur=Math.max((int)(160*d),Math.min((int)(largeur*(float)h/Math.max(1,w)),(int)(460*d)));
 a.runOnUiThread(()->{
-cadre.setLayoutParams(new android.view.ViewGroup.LayoutParams(largeur,hauteur));
+cadre.setMinimumHeight(hauteur);
 if(fr!=null)im.setImageBitmap(fr);
+cadre.requestLayout();
 });
 }catch(Exception e){
 }
