@@ -42,7 +42,7 @@
 
         <activity
             android:name=".VideoPlayerActivity"
-            android:screenOrientation="landscape"
+            android:screenOrientation="fullUser"
             android:configChanges="orientation|screenSize"
             android:exported="false" />
 
