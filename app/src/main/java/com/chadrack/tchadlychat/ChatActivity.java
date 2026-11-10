@@ -1647,7 +1647,7 @@ TextView content=new TextView(this);
 content.setText(text==null?"":text);
 content.setTextColor(Color.WHITE);
 content.setTextSize(16);
-bubble.addView(content);
+LienUtil.ajouterTexte(this,bubble,text);
 }
 ajouterReactions(bubble,d);
 ajouterInfos(bubble,mine,timestamp,safeBoolean(d,"delivered"),safeBoolean(d,"seen"),safeBoolean(d,"edited"));
