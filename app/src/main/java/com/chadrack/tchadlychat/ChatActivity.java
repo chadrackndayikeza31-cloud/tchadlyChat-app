@@ -144,6 +144,7 @@ etMessage.addTextChangedListener(new TextWatcher(){
 btnEnvoyer.setOnClickListener(v->{if(isRecording){arreterEnregistrement();return;}String t=etMessage.getText().toString().trim();if(t.isEmpty())commencerEnregistrement();else envoyerMessage();});
 btnImage.setOnClickListener(v->choisirMedia());
 styliserBarreSaisie();
+ecouterDemande();
 chargerMessages();
 ecouterSaisie();
 chargerJobs(getApplicationContext());
@@ -369,7 +370,7 @@ if(isRecording){btnEnvoyer.setText("⏹");btnEnvoyer.setContentDescription("Arr�
 else if(etMessage.getText().toString().trim().isEmpty()){btnEnvoyer.setText("🎙");btnEnvoyer.setContentDescription("Enregistrer un message vocal");}
 else{btnEnvoyer.setText(editingMessageId!=null?"Modifier":"Envoyer");btnEnvoyer.setContentDescription("Envoyer le message");}
 }
-private void envoyerMessage(){
+private void envoyerMessage(){creerDemandeSiBesoin();
 if(firestore==null||senderUid==null||receiverUid==null)return;
 String texte=etMessage.getText().toString().trim();
 if(texte.isEmpty())return;
@@ -1454,6 +1455,80 @@ sep.setBackgroundColor(Color.rgb(40,70,100));
 barre.addView(sep,barre.indexOfChild(etMessage),new LinearLayout.LayoutParams(dp(1),dp(28)));
 }catch(Exception ignored){}
 }
+private String idPaire(String a,String b){return a.compareTo(b)<0?a+"_"+b:b+"_"+a;}
+private String statutDemande="none",demandeFrom=null;
+private com.google.firebase.firestore.ListenerRegistration demandeListener;
+private void ecouterDemande(){
+if(firestore==null||senderUid==null||receiverUid==null)return;
+if(demandeListener!=null)demandeListener.remove();
+demandeListener=firestore.collection("chat_requests").document(idPaire(senderUid,receiverUid)).addSnapshotListener((d,e)->{
+if(d==null||!d.exists()){statutDemande="none";demandeFrom=null;}
+else{
+String st=d.getString("status");
+statutDemande=st==null?"none":st;
+demandeFrom=d.getString("from");
+}
+ecouterDemande();
+chargerMessages();
+});
+}
+private boolean messageVisible(DocumentSnapshot d){
+String exp=safeString(d,"sender");
+if(senderUid!=null&&senderUid.equals(exp))return true;
+return "none".equals(statutDemande)||"accepted".equals(statutDemande);
+}
+private void creerDemandeSiBesoin(){
+if(firestore==null||senderUid==null||receiverUid==null)return;
+final String id=idPaire(senderUid,receiverUid);
+firestore.collection("chat_requests").document(id).get().addOnSuccessListener(d->{
+if(d.exists())return;
+Map<String,Object> m=new HashMap<>();
+m.put("from",senderUid);
+m.put("to",receiverUid);
+m.put("status","pending");
+m.put("createdAt",Timestamp.now());
+firestore.collection("chat_requests").document(id).set(m);
+});
+}
+private void afficherCarteDemande(){
+if(demandeFrom==null||demandeFrom.equals(senderUid)||!"pending".equals(statutDemande))return;
+LinearLayout carte=new LinearLayout(this);
+carte.setOrientation(LinearLayout.VERTICAL);
+carte.setPadding(dp(14),dp(12),dp(14),dp(12));
+carte.setBackground(formeBulle(Color.rgb(30,40,58),14));
+TextView t=new TextView(this);
+t.setText(receiverPseudo+" veut de discuter avec vous");
+t.setTextColor(Color.WHITE);
+t.setTextSize(15);
+carte.addView(t);
+LinearLayout boutons=new LinearLayout(this);
+boutons.setPadding(0,dp(10),0,0);
+Button acc=new Button(this);
+acc.setText("Accepter");
+acc.setAllCaps(false);
+acc.setTextColor(Color.WHITE);
+acc.setBackgroundColor(Color.rgb(46,180,95));
+acc.setOnClickListener(v->changerDemande("accepted"));
+boutons.addView(acc,new LinearLayout.LayoutParams(0,dp(44),1f));
+Button ref=new Button(this);
+ref.setText("Refuser");
+ref.setAllCaps(false);
+ref.setTextColor(Color.WHITE);
+ref.setBackgroundColor(Color.rgb(190,45,55));
+ref.setOnClickListener(v->changerDemande("rejected"));
+LinearLayout.LayoutParams pr=new LinearLayout.LayoutParams(0,dp(44),1f);
+pr.setMargins(dp(8),0,0,0);
+boutons.addView(ref,pr);
+carte.addView(boutons);
+LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
+lp.setMargins(0,dp(10),0,dp(10));
+layoutMessages.addView(carte,lp);
+}
+private void changerDemande(String statut){
+if(firestore==null||senderUid==null||receiverUid==null)return;
+firestore.collection("chat_requests").document(idPaire(senderUid,receiverUid)).update("status",statut)
+.addOnFailureListener(e->Toast.makeText(this,"Action impossible.",Toast.LENGTH_SHORT).show());
+}
 private void envoyerImage(Uri uri,String mime){
 if(uri==null||firestore==null||senderUid==null||receiverUid==null)return;
 final String cible=receiverUid;
@@ -1490,6 +1565,7 @@ runOnUiThread(()->{
 if(!activityActive()||layoutMessages==null)return;
 layoutMessages.removeAllViews();
 for(DocumentSnapshot d:list)afficherBulleMessage(d);
+afficherCarteDemande();
 rafraichirBulleUpload();
 scrollMessages.post(()->scrollMessages.fullScroll(View.FOCUS_DOWN));
 });
@@ -1525,6 +1601,7 @@ d.getReference().update(updates);
 }
 private void afficherBulleMessage(DocumentSnapshot d){
 if(masqueePourMoi(d))return;
+if(!messageVisible(d))return;
 String sender=safeString(d,"sender");
 String type=safeString(d,"type");
 String text=safeString(d,"text");
@@ -1802,6 +1879,7 @@ if(r!=null&&r.get()==this)ui=null;
 try{notificationExecutor.shutdown();}catch(Exception ignored){}
 try{mediaExecutor.shutdown();}catch(Exception ignored){}
 if(saisieListener!=null)saisieListener.remove();
+if(demandeListener!=null)demandeListener.remove();
 super.onDestroy();
 }
 }
