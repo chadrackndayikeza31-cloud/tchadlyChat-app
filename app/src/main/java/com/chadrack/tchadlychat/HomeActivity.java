@@ -87,7 +87,7 @@ public class HomeActivity extends Activity {
         currentUid=user.getUid();
         lireModeTransfert();
         creerBoutonDeconnexion();
-BarreNav.ajouter(this,BarreNav.DISCUSSIONS);
+BarreNav.ajouter(this,BarreNav.GROUPES);
         demanderPermissionNotification();
         enregistrerFcmToken();
         chargerUtilisateurs();

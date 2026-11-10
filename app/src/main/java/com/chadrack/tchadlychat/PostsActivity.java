@@ -92,7 +92,7 @@ FrameLayout.LayoutParams lpTop=new FrameLayout.LayoutParams(-1,dp(100));
 lpTop.gravity=Gravity.TOP;
 root.addView(top,lpTop);
 setContentView(root);
-BarreNav.ajouter(this,BarreNav.PUBLICATIONS);
+BarreNav.ajouter(this,BarreNav.ACCUEIL);
 }
 private TextView onglet(String texte,boolean actif){
 TextView t=new TextView(this);
