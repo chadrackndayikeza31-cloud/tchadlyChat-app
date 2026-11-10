@@ -1,5 +1,4 @@
-package com.chadrack.tchadlychat;
-import android.app.Activity;
+package com.chadrack.tchadlychat;import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -8,10 +7,13 @@ import android.graphics.Outline;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewOutlineProvider;
+import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -27,10 +29,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 public class DiscussionsActivity extends Activity{
 private static class Conv{String partner;long time;String texte;}
 private String moi;
+private String filtre="";
 private FirebaseFirestore db;
 private LinearLayout liste;
 private ListenerRegistration regEnvoyes,regRecus;
@@ -50,10 +54,10 @@ root.setBackgroundColor(Color.rgb(12,16,26));
 ScrollView sv=new ScrollView(this);
 liste=new LinearLayout(this);
 liste.setOrientation(LinearLayout.VERTICAL);
-liste.setPadding(dp(12),dp(12),dp(12),dp(70));
+liste.setPadding(dp(12),dp(4),dp(12),dp(70));
 sv.addView(liste);
 FrameLayout.LayoutParams lpSv=new FrameLayout.LayoutParams(-1,-1);
-lpSv.topMargin=dp(56);
+lpSv.topMargin=dp(108);
 root.addView(sv,lpSv);
 LinearLayout haut=new LinearLayout(this);
 haut.setOrientation(LinearLayout.HORIZONTAL);
@@ -69,6 +73,31 @@ haut.addView(titre,new LinearLayout.LayoutParams(-1,-2));
 FrameLayout.LayoutParams lpHaut=new FrameLayout.LayoutParams(-1,dp(56));
 lpHaut.gravity=Gravity.TOP;
 root.addView(haut,lpHaut);
+EditText recherche=new EditText(this);
+recherche.setHint("🔍 Rechercher une personne…");
+recherche.setHintTextColor(Color.rgb(120,135,160));
+recherche.setTextColor(Color.WHITE);
+recherche.setSingleLine(true);
+GradientDrawable fond=new GradientDrawable();
+fond.setCornerRadius(dp(12));
+fond.setColor(Color.rgb(30,40,58));
+recherche.setBackground(fond);
+recherche.setPadding(dp(14),0,dp(14),0);
+recherche.addTextChangedListener(new TextWatcher(){
+@Override
+public void beforeTextChanged(CharSequence s,int st,int c,int a){}
+@Override
+public void onTextChanged(CharSequence s,int st,int bf,int c){
+filtre=s.toString().trim().toLowerCase(Locale.ROOT);
+afficher();
+}
+@Override
+public void afterTextChanged(Editable s){}
+});
+FrameLayout.LayoutParams lpRech=new FrameLayout.LayoutParams(-1,dp(44));
+lpRech.gravity=Gravity.TOP;
+lpRech.setMargins(dp(12),dp(62),dp(12),0);
+root.addView(recherche,lpRech);
 setContentView(root);
 BarreNav.ajouter(this,BarreNav.DISCUSSION);
 }
@@ -131,7 +160,13 @@ private void afficher(){
 liste.removeAllViews();
 List<Conv> l=new ArrayList<>(conv.values());
 Collections.sort(l,(x,y)->Long.compare(y.time,x.time));
-for(Conv c:l)liste.addView(ligne(c));
+for(Conv c:l){
+if(!filtre.isEmpty()){
+String p=pseudos.get(c.partner);
+if(p==null||!p.toLowerCase(Locale.ROOT).contains(filtre))continue;
+}
+liste.addView(ligne(c));
+}
 }
 private LinearLayout ligne(final Conv c){
 final LinearLayout row=new LinearLayout(this);
@@ -198,6 +233,7 @@ pseudos.put(uid,v);
 nom.setText(v);
 Bitmap bm=decoder(us.getString("photoBase64"));
 if(bm!=null)av.setImageBitmap(bm);
+if(!filtre.isEmpty())afficher();
 });
 }
 private void verifierAcces(final String uid,final View row){

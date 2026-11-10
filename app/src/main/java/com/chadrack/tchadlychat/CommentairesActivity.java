@@ -301,6 +301,7 @@ etMsg.setText("");
 if(parent!=null)ouverts.add(parent);
 annulerReponse();
 db.collection("posts").document(postId).update("commentCount",FieldValue.increment(1));
+NotifPost.envoyer(postId,"comment");
 })
 .addOnFailureListener(e->toast("Envoi impossible."));
 }
