@@ -308,6 +308,7 @@ Object onlineObject=document.get("online");
 boolean onlineFlag=onlineObject instanceof Boolean&&(Boolean)onlineObject;
 Object lastSeenObject=document.get("lastSeen");
 long lastSeen=lastSeenObject instanceof Number?((Number)lastSeenObject).longValue():0L;
+derniereVuePar.put(document.getId(),lastSeen);
 boolean online=Presence.estEnLigne(onlineFlag,lastSeen);
                         long createdAt=0;
                         Object createdAtObject=document.get("createdAt");
@@ -700,7 +701,7 @@ if(accepte)Toast.makeText(this,"Appel accepté.",Toast.LENGTH_SHORT).show();
                     Color.rgb(40,220,125)
             );
         }else{
-            statut.setText("●  Hors ligne");
+            statut.setText("●  "+Statut.texteDepuis(derniereVuePar.containsKey(utilisateur.uid)?derniereVuePar.get(utilisateur.uid):0L));
             statut.setTextColor(
                     Color.rgb(155,170,190)
             );
@@ -865,7 +866,8 @@ finish();
         );
     }
 
-    private static class UserInfo{
+    private static final java.util.Map<String,Long> derniereVuePar=new java.util.HashMap<>();
+private static class UserInfo{
         String uid;
         String pseudo;
         String photoBase64;
