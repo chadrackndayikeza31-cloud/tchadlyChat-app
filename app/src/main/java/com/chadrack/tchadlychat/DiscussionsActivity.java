@@ -13,12 +13,14 @@ import android.util.Base64;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewOutlineProvider;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+import android.widget.Toast;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -101,8 +103,7 @@ root.addView(recherche,lpRech);
 setContentView(root);
 BarreNav.ajouter(this,BarreNav.DISCUSSION);
 }
-@Override
-protected void onStart(){
+@Overrideprotected void onStart(){
 super.onStart();
 regEnvoyes=db.collection("private_messages").whereEqualTo("sender",moi).addSnapshotListener((s,e)->{
 if(e!=null||s==null)return;
@@ -154,8 +155,8 @@ if("video".equals(type))return "🎥 Vidéo";
 if("audio".equals(type))return "🎤 Message vocal";
 if("document".equals(type))return "📄 Document";
 String t=d.getString("text");
-return t==null?"":t;
-}
+return t==null?"":t
+;}
 private void afficher(){
 liste.removeAllViews();
 List<Conv> l=new ArrayList<>(conv.values());
@@ -169,6 +170,12 @@ liste.addView(ligne(c));
 }
 }
 private LinearLayout ligne(final Conv c){
+final LinearLayout wrap=new LinearLayout(this);
+wrap.setOrientation(LinearLayout.VERTICAL);
+wrap.setVisibility(View.GONE);
+LinearLayout.LayoutParams lpWrap=new LinearLayout.LayoutParams(-1,-2);
+lpWrap.setMargins(0,0,0,dp(10));
+wrap.setLayoutParams(lpWrap);
 final LinearLayout row=new LinearLayout(this);
 row.setOrientation(LinearLayout.HORIZONTAL);
 row.setGravity(Gravity.CENTER_VERTICAL);
@@ -177,10 +184,6 @@ GradientDrawable f=new GradientDrawable();
 f.setCornerRadius(dp(14));
 f.setColor(Color.rgb(22,28,42));
 row.setBackground(f);
-LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,-2);
-lp.setMargins(0,0,0,dp(10));
-row.setLayoutParams(lp);
-row.setVisibility(View.GONE);
 final ImageView av=new ImageView(this);
 av.setScaleType(ImageView.ScaleType.CENTER_CROP);
 av.setBackgroundColor(Color.rgb(55,70,95));
@@ -201,20 +204,17 @@ nom.setTextColor(Color.WHITE);
 nom.setTextSize(16);
 nom.setTypeface(null,Typeface.BOLD);
 info.addView(nom);
-TextView apercu=new TextView(this);
+final TextView apercu=new TextView(this);
 apercu.setText(c.texte);
 apercu.setTextColor(Color.rgb(150,165,185));
 apercu.setTextSize(13);
-apercu.setMaxLines(1);
-apercu.setEllipsize(android.text.TextUtils.TruncateAt.END);
+apercu.setMaxLines(1);apercu.setEllipsize(android.text.TextUtils.TruncateAt.END);
 info.addView(apercu);
 TextView temps=new TextView(this);
 temps.setText(tempsEcoule(c.time));
 temps.setTextColor(Color.rgb(150,165,185));
 temps.setTextSize(12);
 row.addView(temps);
-chargerProfil(c.partner,nom,av);
-verifierAcces(c.partner,row);
 row.setOnClickListener(v->{
 Intent i=new Intent(this,ChatActivity.class);
 i.putExtra("receiverUid",c.partner);
@@ -222,7 +222,58 @@ String p=pseudos.get(c.partner);
 i.putExtra("receiverPseudo",p==null?"Utilisateur":p);
 startActivity(i);
 });
-return row;
+wrap.addView(row);
+final LinearLayout boutons=new LinearLayout(this);
+boutons.setOrientation(LinearLayout.HORIZONTAL);
+boutons.setPadding(0,dp(8),0,0);
+boutons.setVisibility(View.GONE);
+Button acc=new Button(this);
+acc.setText("Accepter");
+acc.setAllCaps(false);
+acc.setTextColor(Color.WHITE);
+acc.setBackgroundColor(Color.rgb(46,180,95));
+acc.setOnClickListener(v->changerStatut(c.partner,"accepted"));
+boutons.addView(acc,new LinearLayout.LayoutParams(0,dp(44),1f));
+Button ref=new Button(this);
+ref.setText("Refuser");
+ref.setAllCaps(false);
+ref.setTextColor(Color.WHITE);
+ref.setBackgroundColor(Color.rgb(190,45,55));
+ref.setOnClickListener(v->changerStatut(c.partner,"rejected"));
+LinearLayout.LayoutParams pr=new LinearLayout.LayoutParams(0,dp(44),1f);
+pr.setMargins(dp(8),0,0,0);
+boutons.addView(ref,pr);
+wrap.addView(boutons);
+chargerProfil(c.partner,nom,av);
+verifierAcces(c.partner,wrap,boutons,apercu);
+return wrap;
+}
+private void verifierAcces(final String uid,final LinearLayout wrap,final LinearLayout boutons,final TextView apercu){
+String id=uid.compareTo(moi)<0?uid+"_"+moi:moi+"_"+uid;
+db.collection("chat_requests").document(id).get().addOnSuccessListener(r->{
+if(!r.exists()){
+wrap.setVisibility(View.VISIBLE);
+boutons.setVisibility(View.GONE);
+return;
+}
+String st=r.getString("status");
+String from=r.getString("from");
+if("accepted".equals(st)||moi.equals(from)){
+wrap.setVisibility(View.VISIBLE);
+boutons.setVisibility(View.GONE);}else if("pending".equals(st)){
+wrap.setVisibility(View.VISIBLE);
+boutons.setVisibility(View.VISIBLE);
+apercu.setText("✉ veut discuter avec vous");
+}else{
+wrap.setVisibility(View.GONE);
+}
+});
+}
+private void changerStatut(String uid,String statut){
+String id=uid.compareTo(moi)<0?uid+"_"+moi:moi+"_"+uid;
+db.collection("chat_requests").document(id).update("status",statut)
+.addOnSuccessListener(v->afficher())
+.addOnFailureListener(e->Toast.makeText(this,"Action impossible.",Toast.LENGTH_SHORT).show());
 }
 private void chargerProfil(final String uid,final TextView nom,final ImageView av){
 if(pseudos.containsKey(uid))nom.setText(pseudos.get(uid));
@@ -234,18 +285,6 @@ nom.setText(v);
 Bitmap bm=decoder(us.getString("photoBase64"));
 if(bm!=null)av.setImageBitmap(bm);
 if(!filtre.isEmpty())afficher();
-});
-}
-private void verifierAcces(final String uid,final View row){
-String id=uid.compareTo(moi)<0?uid+"_"+moi:moi+"_"+uid;
-db.collection("chat_requests").document(id).get().addOnSuccessListener(r->{
-if(!r.exists()){
-row.setVisibility(View.VISIBLE);
-return;
-}
-String st=r.getString("status");
-String from=r.getString("from");
-if("accepted".equals(st)||moi.equals(from))row.setVisibility(View.VISIBLE);
 });
 }
 private String tempsEcoule(long ms){
