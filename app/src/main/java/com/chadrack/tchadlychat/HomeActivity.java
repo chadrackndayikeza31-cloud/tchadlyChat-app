@@ -309,6 +309,7 @@ boolean onlineFlag=onlineObject instanceof Boolean&&(Boolean)onlineObject;
 Object lastSeenObject=document.get("lastSeen");
 long lastSeen=lastSeenObject instanceof Number?((Number)lastSeenObject).longValue():0L;
 derniereVuePar.put(document.getId(),lastSeen);
+derniereVuePar.put(document.getId(),lastSeen);
 boolean online=Presence.estEnLigne(onlineFlag,lastSeen);
                         long createdAt=0;
                         Object createdAtObject=document.get("createdAt");
@@ -867,6 +868,7 @@ finish();
     }
 
     private static final java.util.Map<String,Long> derniereVuePar=new java.util.HashMap<>();
+private static final java.util.Map<String,Long> derniereVuePar=new java.util.HashMap<>();
 private static class UserInfo{
         String uid;
         String pseudo;
