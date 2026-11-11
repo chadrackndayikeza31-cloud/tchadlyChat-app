@@ -103,7 +103,8 @@ root.addView(recherche,lpRech);
 setContentView(root);
 BarreNav.ajouter(this,BarreNav.DISCUSSION);
 }
-@Overrideprotected void onStart(){
+@Override
+protected void onStart(){
 super.onStart();
 regEnvoyes=db.collection("private_messages").whereEqualTo("sender",moi).addSnapshotListener((s,e)->{
 if(e!=null||s==null)return;
