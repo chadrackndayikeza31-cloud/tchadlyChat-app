@@ -1475,7 +1475,8 @@ chargerMessages();
 private boolean messageVisible(DocumentSnapshot d){
 String exp=safeString(d,"sender");
 if(senderUid!=null&&senderUid.equals(exp))return true;
-return "none".equals(statutDemande)||"accepted".equals(statutDemande);
+if("none".equals(statutDemande)||"accepted".equals(statutDemande))return true;
+return "pending".equals(statutDemande)&&senderUid!=null&&senderUid.equals(demandeFrom);
 }
 private void creerDemandeSiBesoin(){
 if(firestore==null||senderUid==null||receiverUid==null)return;
