@@ -868,7 +868,6 @@ finish();
     }
 
     private static final java.util.Map<String,Long> derniereVuePar=new java.util.HashMap<>();
-private static final java.util.Map<String,Long> derniereVuePar=new java.util.HashMap<>();
 private static class UserInfo{
         String uid;
         String pseudo;

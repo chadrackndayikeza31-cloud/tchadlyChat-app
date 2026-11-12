@@ -61,7 +61,6 @@ private FirebaseFirestore firestore;
 private String senderUid,receiverUid,receiverPseudo,monPseudo,editingMessageId;
 private MediaRecorder mediaRecorder;
 private final java.util.List<com.google.firebase.firestore.DocumentSnapshot> ordreAudios=new java.util.ArrayList<>();
-private final java.util.List<com.google.firebase.firestore.DocumentSnapshot> ordreAudios=new java.util.ArrayList<>();
 private MediaPlayer lecteurAudio;
 private File lecteurFichier;
 private String audioPath;
@@ -1841,28 +1840,6 @@ runOnUiThread(()->{toast("Lecture audio impossible.");arreterLecture();});
 }
 });
 if(activityActive())afficherMessagesCombines();
-}
-private void lireSuivantAudio(){
-int idx=-1;
-for(int i=0;i<ordreAudios.size();i++)if(ordreAudios.get(i).getId().equals(idLecture))idx=i;
-arreterLecture();
-if(idx<0||idx+1>=ordreAudios.size())return;
-DocumentSnapshot suivant=ordreAudios.get(idx+1);
-String enc=safeString(suivant,"audioBase64");
-if(enc==null||enc.isEmpty())return;
-idLecture=suivant.getId();
-audioEnPause=false;
-mediaExecutor.execute(()->{
-File temp=null;
-try{
-byte[] bytes=android.util.Base64.decode(enc,android.util.Base64.DEFAULT);
-temp=new File(getCacheDir(),"play_"+suivant.getId()+".m4a");
-try(OutputStream out=new FileOutputStream(temp)){out.write(bytes);}
-final File fichier=temp;
-runOnUiThread(()->demarrerLecture(fichier));
-}catch(Exception e){
-if(temp!=null)temp.delete();
-runOnUiThread(()->{toast("Lecture audio impossible.");arreterLecture();});
 }
 });
 if(activityActive())afficherMessagesCombines();

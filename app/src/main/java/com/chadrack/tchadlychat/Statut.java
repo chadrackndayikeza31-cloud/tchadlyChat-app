@@ -42,18 +42,4 @@ hier.add(Calendar.DAY_OF_YEAR,-1);
 if(memeJour(cal,hier))return "Vu hier à "+heure;
 return "Vu le "+new SimpleDateFormat("dd/MM",Locale.FRANCE).format(date)+" à "+heure;
 }
-public static String texteDepuis(long ms){
-if(ms<=0L)return "Hors ligne";
-if(System.currentTimeMillis()-ms<=SEUIL_EN_LIGNE)return "En ligne";
-Date date=new Date(ms);
-Calendar maintenant=Calendar.getInstance();
-Calendar cal=Calendar.getInstance();
-cal.setTime(date);
-String heure=new SimpleDateFormat("HH:mm",Locale.FRANCE).format(date);
-if(memeJour(cal,maintenant))return "Vu à "+heure;
-Calendar hier=Calendar.getInstance();
-hier.add(Calendar.DAY_OF_YEAR,-1);
-if(memeJour(cal,hier))return "Vu hier à "+heure;
-return "Vu le "+new SimpleDateFormat("dd/MM",Locale.FRANCE).format(date)+" à "+heure;
-}
 }
