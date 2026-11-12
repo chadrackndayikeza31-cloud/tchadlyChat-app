@@ -60,7 +60,6 @@ private FirebaseAuth firebaseAuth;
 private FirebaseFirestore firestore;
 private String senderUid,receiverUid,receiverPseudo,monPseudo,editingMessageId;
 private MediaRecorder mediaRecorder;
-private final java.util.List<com.google.firebase.firestore.DocumentSnapshot> ordreAudios=new java.util.ArrayList<>();
 private MediaPlayer lecteurAudio;
 private File lecteurFichier;
 private String audioPath;
@@ -1565,8 +1564,6 @@ Collections.sort(list,Comparator.comparingLong(d->safeTimestamp(d,"timestamp")))
 runOnUiThread(()->{
 if(!activityActive()||layoutMessages==null)return;
 layoutMessages.removeAllViews();
-ordreAudios.clear();for(DocumentSnapshot da:list)if("audio".equals(safeString(da,"type")))ordreAudios.add(da);
-ordreAudios.clear();for(DocumentSnapshot da:list)if("audio".equals(safeString(da,"type")))ordreAudios.add(da);
 for(DocumentSnapshot d:list)afficherBulleMessage(d);
 afficherCarteDemande();
 rafraichirBulleUpload();
@@ -1811,38 +1808,10 @@ lecteurAudio=mp;
 lecteurFichier=fichier;
 mp.setDataSource(fichier.getAbsolutePath());
 mp.setOnPreparedListener(MediaPlayer::start);
-mp.setOnCompletionListener(x->lireSuivantAudio());
+mp.setOnCompletionListener(x->arreterLecture());
 mp.setOnErrorListener((x,w,k)->{arreterLecture();toast("Lecture audio impossible.");return true;});
 mp.prepareAsync();
 }catch(Exception e){arreterLecture();toast("Lecture audio impossible.");}
-}
-private void lireSuivantAudio(){
-int idx=-1;
-for(int i=0;i<ordreAudios.size();i++)if(ordreAudios.get(i).getId().equals(idLecture))idx=i;
-arreterLecture();
-if(idx<0||idx+1>=ordreAudios.size())return;
-DocumentSnapshot suivant=ordreAudios.get(idx+1);
-String enc=safeString(suivant,"audioBase64");
-if(enc==null||enc.isEmpty())return;
-idLecture=suivant.getId();
-audioEnPause=false;
-mediaExecutor.execute(()->{
-File temp=null;
-try{
-byte[] bytes=android.util.Base64.decode(enc,android.util.Base64.DEFAULT);
-temp=new File(getCacheDir(),"play_"+suivant.getId()+".m4a");
-try(OutputStream out=new FileOutputStream(temp)){out.write(bytes);}
-final File fichier=temp;
-runOnUiThread(()->demarrerLecture(fichier));
-}catch(Exception e){
-if(temp!=null)temp.delete();
-runOnUiThread(()->{toast("Lecture audio impossible.");arreterLecture();});
-}
-});
-if(activityActive())afficherMessagesCombines();
-}
-});
-if(activityActive())afficherMessagesCombines();
 }
 private void arreterLecture(){
 if(lecteurAudio!=null){try{lecteurAudio.release();}catch(Exception ignored){}lecteurAudio=null;}
