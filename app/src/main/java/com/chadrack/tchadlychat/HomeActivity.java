@@ -309,7 +309,6 @@ boolean onlineFlag=onlineObject instanceof Boolean&&(Boolean)onlineObject;
 Object lastSeenObject=document.get("lastSeen");
 long lastSeen=lastSeenObject instanceof Number?((Number)lastSeenObject).longValue():0L;
 derniereVuePar.put(document.getId(),lastSeen);
-derniereVuePar.put(document.getId(),lastSeen);
 boolean online=Presence.estEnLigne(onlineFlag,lastSeen);
                         long createdAt=0;
                         Object createdAtObject=document.get("createdAt");
@@ -348,6 +347,7 @@ boolean online=Presence.estEnLigne(onlineFlag,lastSeen);
                 .get()
                 .addOnSuccessListener(sentMessages->{
                     for(QueryDocumentSnapshot document:sentMessages){
+                        if(document.getString("receiver")!=null)interlocuteurs.add(document.getString("receiver"));
                         enregistrerDernierMessage(document);
                     }
 
@@ -356,6 +356,7 @@ boolean online=Presence.estEnLigne(onlineFlag,lastSeen);
                             .get()
                             .addOnSuccessListener(receivedMessages->{
                                 for(QueryDocumentSnapshot document:receivedMessages){
+                                    if(document.getString("sender")!=null)interlocuteurs.add(document.getString("sender"));
                                     enregistrerDernierMessage(document);
                                 }
 
@@ -538,6 +539,7 @@ if(accepte)Toast.makeText(this,"Appel accepté.",Toast.LENGTH_SHORT).show();
         );
     }
 
+private final java.util.Set<String> interlocuteurs=new java.util.HashSet<>();
     private void afficherUtilisateurs(String recherche){
         if(usersContainer==null)return;
 
@@ -549,6 +551,7 @@ if(accepte)Toast.makeText(this,"Appel accepté.",Toast.LENGTH_SHORT).show();
 
         for(UserInfo utilisateur:utilisateurs){
             if(utilisateur==null)continue;
+            if(interlocuteurs.contains(utilisateur.uid))continue;
 
             String pseudo=utilisateur.pseudo;
 
