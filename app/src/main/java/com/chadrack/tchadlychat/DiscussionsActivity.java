@@ -173,7 +173,7 @@ liste.addView(ligne(c));
 private LinearLayout ligne(final Conv c){
 final LinearLayout wrap=new LinearLayout(this);
 wrap.setOrientation(LinearLayout.VERTICAL);
-wrap.setVisibility(View.GONE);
+wrap.setVisibility(View.VISIBLE);
 LinearLayout.LayoutParams lpWrap=new LinearLayout.LayoutParams(-1,-2);
 lpWrap.setMargins(0,0,0,dp(10));
 wrap.setLayoutParams(lpWrap);
@@ -246,7 +246,6 @@ pr.setMargins(dp(8),0,0,0);
 boutons.addView(ref,pr);
 wrap.addView(boutons);
 chargerProfil(c.partner,nom,av);
-verifierAcces(c.partner,wrap,boutons,apercu);
 return wrap;
 }
 private void verifierAcces(final String uid,final LinearLayout wrap,final LinearLayout boutons,final TextView apercu){
@@ -266,7 +265,7 @@ wrap.setVisibility(View.VISIBLE);
 boutons.setVisibility(View.VISIBLE);
 apercu.setText("✉ veut discuter avec vous");
 }else{
-wrap.setVisibility(View.GONE);
+wrap.setVisibility(View.VISIBLE);
 }
 });
 }
