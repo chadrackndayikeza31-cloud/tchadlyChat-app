@@ -43,8 +43,7 @@ private ListenerRegistration regEnvoyes,regRecus;
 private List<DocumentSnapshot> envoyes=new ArrayList<>();
 private List<DocumentSnapshot> recus=new ArrayList<>();
 private final Map<String,Conv> conv=new HashMap<>();
-private final Map<String,String> pseudos=new HashMap<>();
-@Override
+private final Map<String,String> pseudos=new HashMap<>();@Override
 protected void onCreate(Bundle b){
 super.onCreate(b);
 FirebaseUser u=FirebaseAuth.getInstance().getCurrentUser();
@@ -91,8 +90,7 @@ public void beforeTextChanged(CharSequence s,int st,int c,int a){}
 @Override
 public void onTextChanged(CharSequence s,int st,int bf,int c){
 filtre=s.toString().trim().toLowerCase(Locale.ROOT);
-afficher();
-}
+afficher();}
 @Override
 public void afterTextChanged(Editable s){}
 });
@@ -156,8 +154,7 @@ if("video".equals(type))return "🎥 Vidéo";
 if("audio".equals(type))return "🎤 Message vocal";
 if("document".equals(type))return "📄 Document";
 String t=d.getString("text");
-return t==null?"":t
-;}
+return t==null?"":t;}
 private void afficher(){
 liste.removeAllViews();
 List<Conv> l=new ArrayList<>(conv.values());
@@ -173,7 +170,7 @@ liste.addView(ligne(c));
 private LinearLayout ligne(final Conv c){
 final LinearLayout wrap=new LinearLayout(this);
 wrap.setOrientation(LinearLayout.VERTICAL);
-wrap.setVisibility(View.VISIBLE);
+wrap.setVisibility(View.GONE);
 LinearLayout.LayoutParams lpWrap=new LinearLayout.LayoutParams(-1,-2);
 lpWrap.setMargins(0,0,0,dp(10));
 wrap.setLayoutParams(lpWrap);
@@ -246,6 +243,7 @@ pr.setMargins(dp(8),0,0,0);
 boutons.addView(ref,pr);
 wrap.addView(boutons);
 chargerProfil(c.partner,nom,av);
+verifierAcces(c.partner,wrap,boutons,apercu);
 return wrap;
 }
 private void verifierAcces(final String uid,final LinearLayout wrap,final LinearLayout boutons,final TextView apercu){
@@ -265,7 +263,7 @@ wrap.setVisibility(View.VISIBLE);
 boutons.setVisibility(View.VISIBLE);
 apercu.setText("✉ veut discuter avec vous");
 }else{
-wrap.setVisibility(View.VISIBLE);
+wrap.setVisibility(View.GONE);
 }
 });
 }

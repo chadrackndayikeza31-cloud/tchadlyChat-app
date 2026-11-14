@@ -1472,9 +1472,6 @@ ecouterDemande();
 chargerMessages();
 });
 }
-private boolean messageVisible(DocumentSnapshot d){
-return true;
-}
 private void creerDemandeSiBesoin(){
 if(firestore==null||senderUid==null||receiverUid==null)return;
 final String id=idPaire(senderUid,receiverUid);
@@ -1487,6 +1484,12 @@ m.put("status","pending");
 m.put("createdAt",Timestamp.now());
 firestore.collection("chat_requests").document(id).set(m);
 });
+}
+private boolean messageVisible(DocumentSnapshot d){
+String exp=safeString(d,"sender");
+if(senderUid!=null&&senderUid.equals(exp))return true;
+if("none".equals(statutDemande)||"accepted".equals(statutDemande))return true;
+return "pending".equals(statutDemande)&&senderUid!=null&&senderUid.equals(demandeFrom);
 }
 private void afficherCarteDemande(){
 if(demandeFrom==null||demandeFrom.equals(senderUid)||!"pending".equals(statutDemande))return;
