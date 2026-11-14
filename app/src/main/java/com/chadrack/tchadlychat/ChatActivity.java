@@ -1602,7 +1602,7 @@ d.getReference().update(updates);
 }
 private void afficherBulleMessage(DocumentSnapshot d){
 if(masqueePourMoi(d))return;
-if(!messageVisible(d))return;
+// if(!messageVisible(d))return;
 String sender=safeString(d,"sender");
 String type=safeString(d,"type");
 String text=safeString(d,"text");
